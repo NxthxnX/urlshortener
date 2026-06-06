@@ -1,0 +1,24 @@
+name: go vet test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  statictest:
+    runs-on: ubuntu-latest
+    container: golang:1.26
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Build statictest
+        run: |
+          cd tools/autotests/cmd/statictest
+          go build -buildvcs=false -o /usr/local/bin/statictest .
+
+      - name: Run statictest
+        run: |
+          go vet -vettool=$(which statictest) ./...
