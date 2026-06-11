@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/NxthxnX/urlshortener/tools/autotests/internal/fork"
+	"autotests/internal/fork"
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/suite"
 )

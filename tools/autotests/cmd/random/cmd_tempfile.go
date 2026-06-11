@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/NxthxnX/urlshortener/tools/autotests/internal/random"
+	"autotests/internal/random"
 )
 
 var tempfileCmd = cmd{

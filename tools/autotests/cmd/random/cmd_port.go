@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/NxthxnX/urlshortener/tools/autotests/internal/random"
+	"autotests/internal/random"
 )
 
 var unusedPortCmd = cmd{

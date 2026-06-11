@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/stdlib"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/NxthxnX/urlshortener/tools/autotests/internal/fork"
+	"autotests/internal/fork"
 )
 
 // Iteration12Suite является сьютом с тестами и состоянием для инкремента

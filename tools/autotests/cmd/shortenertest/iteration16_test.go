@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/NxthxnX/urlshortener/tools/autotests/internal/fork"
+	"autotests/internal/fork"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/stdlib"
 	"github.com/stretchr/testify/suite"

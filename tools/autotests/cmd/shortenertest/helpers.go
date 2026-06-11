@@ -18,7 +18,7 @@ import (
 
 	"golang.org/x/tools/go/ast/astutil"
 
-	"github.com/NxthxnX/urlshortener/tools/autotests/internal/random"
+	"autotests/internal/random"
 )
 
 // generateTestURL возвращает валидный псевдослучайный URL

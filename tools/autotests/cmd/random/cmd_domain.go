@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/NxthxnX/urlshortener/tools/autotests/internal/random"
+	"autotests/internal/random"
 )
 
 var domainFlags = flag.NewFlagSet("domain", flag.ExitOnError)

@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -56,6 +59,24 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if parsedURL, err := url.ParseRequestURI(originalURL); err != nil || parsedURL.Scheme == "" {
+		if !strings.HasPrefix(originalURL, "http://") && !strings.HasPrefix(originalURL, "https://") {
+			originalURL = "http://" + originalURL
+		}
+
+		parsedURL, err = url.ParseRequestURI(originalURL)
+		if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+			http.Error(w, "Invalid URL format", http.StatusBadRequest)
+			return
+		}
+		fmt.Println(parsedURL.Scheme, parsedURL.Host)
+	} else {
+		if parsedURL.Host == "" {
+			http.Error(w, "Invalid URL format", http.StatusBadRequest)
+			return
+		}
+	}
+
 	id, err := h.shortener.Shorten(originalURL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -63,7 +84,8 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	shortURL := baseURL + "/" + id
 
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(shortURL)))
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))
 }
