@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -69,7 +68,6 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid URL format", http.StatusBadRequest)
 			return
 		}
-		fmt.Println(parsedURL.Scheme, parsedURL.Host)
 	} else {
 		if parsedURL.Host == "" {
 			http.Error(w, "Invalid URL format", http.StatusBadRequest)
