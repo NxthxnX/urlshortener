@@ -16,12 +16,14 @@ func main() {
 }
 
 func run() error {
+	parseFlags()
+
 	repo := repository.NewMemoryRepository()
 	svc := service.NewShortenerService(repo)
-	h := handler.NewHandler(svc)
+	h := handler.NewHandler(svc, string(options.baseURL))
 
 	r := chi.NewRouter()
 	h.RegisterRoutes(r)
 
-	return http.ListenAndServe(":8080", r)
+	return http.ListenAndServe(string(options.servAddr), r)
 }

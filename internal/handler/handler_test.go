@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	mockResAddr     = "http://localhost:8080"
 	mockOriginalURL = "https://www.example.com"
 	mockID          = "abcd1234"
 )
@@ -45,6 +46,7 @@ func TestShortenHandler(t *testing.T) {
 		name        string
 		originalURL string
 		id          string
+		resAddr     string
 		err         error
 		want        want
 	}{
@@ -52,7 +54,6 @@ func TestShortenHandler(t *testing.T) {
 			name:        "Full https ULR",
 			originalURL: mockOriginalURL,
 			id:          mockID,
-			err:         nil,
 			want: want{
 				code:          http.StatusCreated,
 				response:      "http://localhost:8080/" + mockID,
@@ -64,7 +65,6 @@ func TestShortenHandler(t *testing.T) {
 			name:        "Full http ULR",
 			originalURL: "http://httpbin.org",
 			id:          mockID,
-			err:         nil,
 			want: want{
 				code:          http.StatusCreated,
 				response:      "http://localhost:8080/" + mockID,
@@ -76,7 +76,6 @@ func TestShortenHandler(t *testing.T) {
 			name:        "Short ULR",
 			originalURL: "example.com",
 			id:          mockID,
-			err:         nil,
 			want: want{
 				code:          http.StatusCreated,
 				response:      "http://localhost:8080/" + mockID,
@@ -88,7 +87,6 @@ func TestShortenHandler(t *testing.T) {
 			name:        "ULR with queries",
 			originalURL: mockOriginalURL + "/example?test=go&test=lang",
 			id:          mockID,
-			err:         nil,
 			want: want{
 				code:          http.StatusCreated,
 				response:      "http://localhost:8080/" + mockID,
@@ -100,60 +98,62 @@ func TestShortenHandler(t *testing.T) {
 			name:        "Empty URL",
 			originalURL: "",
 			id:          mockID,
-			err:         nil,
 			want: want{
-				code:          http.StatusBadRequest,
-				response:      "Empty URL\n",
-				contentType:   "text/plain; charset=utf-8",
-				contentLength: "",
+				code:        http.StatusBadRequest,
+				response:    "Empty URL\n",
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 		{
 			name:        "Generation has failed",
 			originalURL: mockOriginalURL,
-			id:          "",
 			err:         io.ErrShortBuffer,
 			want: want{
-				code:          http.StatusBadRequest,
-				response:      "short buffer\n",
-				contentType:   "text/plain; charset=utf-8",
-				contentLength: "",
+				code:        http.StatusBadRequest,
+				response:    "short buffer\n",
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 		{
 			name:        "Invalid URL with spaces",
 			originalURL: "ex ample.com",
 			id:          mockID,
-			err:         nil,
 			want: want{
-				code:          http.StatusBadRequest,
-				response:      "Invalid URL format\n",
-				contentType:   "text/plain; charset=utf-8",
-				contentLength: "",
+				code:        http.StatusBadRequest,
+				response:    "Invalid URL format\n",
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 		{
 			name:        "Incomplete protocol",
 			originalURL: "http:/invalid",
 			id:          mockID,
-			err:         nil,
 			want: want{
-				code:          http.StatusBadRequest,
-				response:      "Invalid URL format\n",
-				contentType:   "text/plain; charset=utf-8",
-				contentLength: "",
+				code:        http.StatusBadRequest,
+				response:    "Invalid URL format\n",
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 		{
 			name:        "URL only with protocol",
 			originalURL: "http://",
 			id:          mockID,
-			err:         nil,
 			want: want{
-				code:          http.StatusBadRequest,
-				response:      "Invalid URL format\n",
+				code:        http.StatusBadRequest,
+				response:    "Invalid URL format\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name:        "Different resAddr",
+			originalURL: mockOriginalURL,
+			id:          mockID,
+			resAddr:     "http://different-host:9090",
+			want: want{
+				code:          http.StatusCreated,
+				response:      "http://different-host:9090/" + mockID,
 				contentType:   "text/plain; charset=utf-8",
-				contentLength: "",
+				contentLength: "35",
 			},
 		},
 	}
@@ -169,7 +169,12 @@ func TestShortenHandler(t *testing.T) {
 
 			mockedShortener := new(mockShortener)
 			mockedShortener.On("Shorten", expectedURLForMock).Return(tt.id, tt.err)
-			h := NewHandler(mockedShortener)
+
+			resAddr := tt.resAddr
+			if resAddr == "" {
+				resAddr = mockResAddr
+			}
+			h := NewHandler(mockedShortener, resAddr)
 
 			r := chi.NewRouter()
 			r.Post("/", h.shortenHandler)
@@ -253,7 +258,6 @@ func TestExpandHandler(t *testing.T) {
 				code:        http.StatusBadRequest,
 				response:    "Not found\n",
 				contentType: "text/plain; charset=utf-8",
-				location:    "",
 			},
 		},
 	}
@@ -262,7 +266,7 @@ func TestExpandHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockedShortener := new(mockShortener)
 			mockedShortener.On("Expand", tt.id).Return(tt.originalURL, tt.ok)
-			h := NewHandler(mockedShortener)
+			h := NewHandler(mockedShortener, mockResAddr)
 
 			r := chi.NewRouter()
 			r.Get("/{id}", h.expandHandler)
@@ -400,7 +404,7 @@ func TestServeHTTP(t *testing.T) {
 
 	repo := repository.NewMemoryRepository()
 	svc := service.NewShortenerService(repo)
-	h := NewHandler(svc)
+	h := NewHandler(svc, mockResAddr)
 
 	r := chi.NewRouter()
 	h.RegisterRoutes(r)

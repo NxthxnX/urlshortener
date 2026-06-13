@@ -10,8 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const baseURL = "http://localhost:8080"
-
 // Shortener defines the interface for URL shortening operations.
 type Shortener interface {
 	Shorten(originalURL string) (string, error)
@@ -21,11 +19,15 @@ type Shortener interface {
 // Handler handles HTTP requests for the URL shortener.
 type Handler struct {
 	shortener Shortener
+	baseURL   string
 }
 
 // New creates a new Handler.
-func NewHandler(s Shortener) *Handler {
-	return &Handler{shortener: s}
+func NewHandler(s Shortener, baseURL string) *Handler {
+	return &Handler{
+		shortener: s,
+		baseURL:   baseURL,
+	}
 }
 
 // RegisterRoutes registers all routes with the chi router.
@@ -80,7 +82,7 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	shortURL := baseURL + "/" + id
+	shortURL := h.baseURL + "/" + id
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(shortURL)))
