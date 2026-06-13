@@ -6,6 +6,7 @@ import (
 	"github.com/NxthxnX/urlshortener/internal/handler"
 	"github.com/NxthxnX/urlshortener/internal/repository"
 	"github.com/NxthxnX/urlshortener/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -19,5 +20,8 @@ func run() error {
 	svc := service.NewShortenerService(repo)
 	h := handler.NewHandler(svc)
 
-	return http.ListenAndServe(`:8080`, h)
+	r := chi.NewRouter()
+	h.RegisterRoutes(r)
+
+	return http.ListenAndServe(":8080", r)
 }

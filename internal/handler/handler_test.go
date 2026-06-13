@@ -9,6 +9,7 @@ import (
 
 	"github.com/NxthxnX/urlshortener/internal/repository"
 	"github.com/NxthxnX/urlshortener/internal/service"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -159,10 +160,6 @@ func TestShortenHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			body := strings.NewReader(tt.originalURL)
-			req := httptest.NewRequest(http.MethodPost, "/", body)
-			w := httptest.NewRecorder()
-
 			var expectedURLForMock string
 			if tt.originalURL == "example.com" {
 				expectedURLForMock = "http://example.com"
@@ -173,6 +170,13 @@ func TestShortenHandler(t *testing.T) {
 			mockedShortener := new(mockShortener)
 			mockedShortener.On("Shorten", expectedURLForMock).Return(tt.id, tt.err)
 			h := NewHandler(mockedShortener)
+
+			r := chi.NewRouter()
+			r.Post("/", h.shortenHandler)
+
+			body := strings.NewReader(tt.originalURL)
+			req := httptest.NewRequest(http.MethodPost, "/", body)
+			w := httptest.NewRecorder()
 
 			h.shortenHandler(w, req)
 
@@ -256,14 +260,17 @@ func TestExpandHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/"+tt.id, nil)
-			w := httptest.NewRecorder()
-
 			mockedShortener := new(mockShortener)
 			mockedShortener.On("Expand", tt.id).Return(tt.originalURL, tt.ok)
 			h := NewHandler(mockedShortener)
 
-			h.expandHandler(w, req)
+			r := chi.NewRouter()
+			r.Get("/{id}", h.expandHandler)
+
+			req := httptest.NewRequest(http.MethodGet, "/"+tt.id, nil)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
 
 			res := w.Result()
 
@@ -324,7 +331,7 @@ func TestServeHTTP(t *testing.T) {
 			body:   mockOriginalURL,
 			want: want{
 				code: http.StatusBadRequest,
-				body: "Not found\n",
+				body: "Method not allowed\n",
 				header: map[string]string{
 					"Content-Type": "text/plain; charset=utf-8",
 				},
@@ -347,7 +354,7 @@ func TestServeHTTP(t *testing.T) {
 			path:   "/",
 			want: want{
 				code: http.StatusBadRequest,
-				body: "Missing ID\n",
+				body: "Method not allowed\n",
 				header: map[string]string{
 					"Content-Type": "text/plain; charset=utf-8",
 				},
@@ -391,28 +398,36 @@ func TestServeHTTP(t *testing.T) {
 		},
 	}
 
+	repo := repository.NewMemoryRepository()
+	svc := service.NewShortenerService(repo)
+	h := NewHandler(svc)
+
+	r := chi.NewRouter()
+	h.RegisterRoutes(r)
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := repository.NewMemoryRepository()
-			svc := service.NewShortenerService(repo)
-			h := NewHandler(svc)
-
 			if tt.method == http.MethodGet && tt.path == "/"+mockID {
 				repo.Save(mockID, mockOriginalURL)
 			}
 
-			var req *http.Request
-			if tt.body != "" {
-				req = httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
-			} else {
-				req = httptest.NewRequest(tt.method, tt.path, nil)
+			targetURL := ts.URL + tt.path
+
+			req, err := http.NewRequest(tt.method, targetURL, strings.NewReader(tt.body))
+			require.NoError(t, err)
+
+			client := &http.Client{
+				CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
 			}
+			res, err := client.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
 
-			w := httptest.NewRecorder()
-
-			h.ServeHTTP(w, req)
-
-			res := w.Result()
 			resBody, err := io.ReadAll(res.Body)
 			require.NoError(t, err)
 

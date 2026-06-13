@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 const baseURL = "http://localhost:8080"
@@ -26,16 +28,14 @@ func NewHandler(s Shortener) *Handler {
 	return &Handler{shortener: s}
 }
 
-// ServeHTTP dispatches requests to the appropriate handler method.
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		h.shortenHandler(w, r)
-	case http.MethodGet:
-		h.expandHandler(w, r)
-	default:
+// RegisterRoutes registers all routes with the chi router.
+func (h *Handler) RegisterRoutes(r *chi.Mux) {
+	r.Post("/", h.shortenHandler)
+	r.Get("/{id}", h.expandHandler)
+
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusBadRequest)
-	}
+	})
 }
 
 // shortenHandler handles POST / requests to shorten a URL.
@@ -90,7 +90,7 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 
 // expandHandler handles GET /{id} requests to expand a shortened URL.
 func (h *Handler) expandHandler(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/")
+	id := chi.URLParam(r, "id")
 	if id == "" {
 		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return

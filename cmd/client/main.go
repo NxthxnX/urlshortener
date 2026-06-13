@@ -3,10 +3,10 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
+
+	"github.com/go-resty/resty/v2"
 )
 
 const endpoint = "http://localhost:8080"
@@ -22,18 +22,17 @@ func main() {
 	}
 	long = strings.TrimSpace(long)
 
-	resp, err := http.Post(endpoint, "text/plain", strings.NewReader(long))
+	client := resty.New()
+
+	resp, err := client.R().
+		SetHeader("Content-Type", "text/plain").
+		SetBody(long).
+		Post(endpoint)
+
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Статус-код", resp.Status)
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(string(body))
+	fmt.Println("Статус-код", resp.Status())
+	fmt.Println(string(resp.Body()))
 }
