@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -48,4 +49,11 @@ func parseFlags() {
 	flag.Var(&options.baseURL, "b", "result URL address")
 
 	flag.Parse()
+
+	if envServAddr := os.Getenv("SERVER_ADDRESS"); envServAddr != "" {
+		options.servAddr = envServAddr
+	}
+	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
+		options.baseURL = WebURL(envBaseURL)
+	}
 }
