@@ -8,18 +8,18 @@ import (
 	"strings"
 )
 
-type WebURL string
+type webURL string
 
 var options struct {
 	servAddr string
-	baseURL  WebURL
+	baseURL  webURL
 }
 
-func (link *WebURL) String() string {
+func (link *webURL) String() string {
 	return string(*link)
 }
 
-func (link *WebURL) Set(value string) error {
+func (link *webURL) Set(value string) error {
 	parsedURL, err := url.ParseRequestURI(value)
 
 	if err != nil || parsedURL.Scheme == "" {
@@ -37,13 +37,13 @@ func (link *WebURL) Set(value string) error {
 		}
 	}
 
-	*link = WebURL(parsedURL.String())
+	*link = webURL(parsedURL.String())
 
 	return nil
 }
 
 func parseFlags() {
-	options.baseURL = WebURL("http://localhost:8080")
+	options.baseURL = webURL("http://localhost:8080")
 
 	flag.StringVar(&options.servAddr, "a", "localhost:8080", "server address")
 	flag.Var(&options.baseURL, "b", "result URL address")
@@ -54,6 +54,6 @@ func parseFlags() {
 		options.servAddr = envServAddr
 	}
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
-		options.baseURL = WebURL(envBaseURL)
+		options.baseURL = webURL(envBaseURL)
 	}
 }
