@@ -51,7 +51,7 @@ func TestShortenHandler(t *testing.T) {
 		want        want
 	}{
 		{
-			name:        "Full https ULR",
+			name:        "Full https URL",
 			originalURL: mockOriginalURL,
 			id:          mockID,
 			want: want{
@@ -62,7 +62,7 @@ func TestShortenHandler(t *testing.T) {
 			},
 		},
 		{
-			name:        "Full http ULR",
+			name:        "Full http URL",
 			originalURL: "http://httpbin.org",
 			id:          mockID,
 			want: want{
@@ -73,7 +73,7 @@ func TestShortenHandler(t *testing.T) {
 			},
 		},
 		{
-			name:        "Short ULR",
+			name:        "Short URL",
 			originalURL: "example.com",
 			id:          mockID,
 			want: want{
@@ -84,7 +84,7 @@ func TestShortenHandler(t *testing.T) {
 			},
 		},
 		{
-			name:        "ULR with queries",
+			name:        "URL with queries",
 			originalURL: mockOriginalURL + "/example?test=go&test=lang",
 			id:          mockID,
 			want: want{
@@ -408,7 +408,7 @@ func TestExpandHandler(t *testing.T) {
 		want        want
 	}{
 		{
-			name:        "Full https ULR",
+			name:        "Full https URL",
 			originalURL: mockOriginalURL,
 			id:          mockID,
 			ok:          true,
@@ -420,7 +420,7 @@ func TestExpandHandler(t *testing.T) {
 			},
 		},
 		{
-			name:        "Full http ULR",
+			name:        "Full http URL",
 			originalURL: "http://httpbin.org",
 			id:          mockID,
 			ok:          true,
@@ -432,7 +432,7 @@ func TestExpandHandler(t *testing.T) {
 			},
 		},
 		{
-			name:        "ULR with queries",
+			name:        "URL with queries",
 			originalURL: mockOriginalURL + "/example?test=go&test=lang",
 			id:          mockID,
 			ok:          true,
