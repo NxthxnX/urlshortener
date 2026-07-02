@@ -97,7 +97,6 @@ func TestShortenHandler(t *testing.T) {
 		{
 			name:        "Empty URL",
 			originalURL: "",
-			id:          mockID,
 			want: want{
 				code:        http.StatusBadRequest,
 				response:    "Empty URL\n",
@@ -117,7 +116,6 @@ func TestShortenHandler(t *testing.T) {
 		{
 			name:        "Invalid URL with spaces",
 			originalURL: "ex ample.com",
-			id:          mockID,
 			want: want{
 				code:        http.StatusBadRequest,
 				response:    "Invalid URL format\n",
@@ -127,7 +125,6 @@ func TestShortenHandler(t *testing.T) {
 		{
 			name:        "Incomplete protocol",
 			originalURL: "http:/invalid",
-			id:          mockID,
 			want: want{
 				code:        http.StatusBadRequest,
 				response:    "Invalid URL format\n",
@@ -137,7 +134,6 @@ func TestShortenHandler(t *testing.T) {
 		{
 			name:        "URL only with protocol",
 			originalURL: "http://",
-			id:          mockID,
 			want: want{
 				code:        http.StatusBadRequest,
 				response:    "Invalid URL format\n",
@@ -161,14 +157,18 @@ func TestShortenHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var expectedURLForMock string
-			if tt.originalURL == "example.com" {
-				expectedURLForMock = "http://example.com"
+			if strings.HasPrefix(tt.originalURL, "http://") || strings.HasPrefix(tt.originalURL, "https://") {
+				expectedURLForMock = tt.originalURL
+			} else if tt.originalURL != "" && tt.originalURL != "{invalid json" {
+				expectedURLForMock = "http://" + tt.originalURL
 			} else {
 				expectedURLForMock = tt.originalURL
 			}
 
 			mockedShortener := new(mockShortener)
-			mockedShortener.On("Shorten", expectedURLForMock).Return(tt.id, tt.err)
+			if expectedURLForMock != "" {
+				mockedShortener.On("Shorten", expectedURLForMock).Return(tt.id, tt.err)
+			}
 
 			resAddr := tt.resAddr
 			if resAddr == "" {
@@ -183,7 +183,7 @@ func TestShortenHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/", body)
 			w := httptest.NewRecorder()
 
-			h.shortenHandler(w, req)
+			r.ServeHTTP(w, req)
 
 			res := w.Result()
 
@@ -220,7 +220,7 @@ func TestAPIShortenHandler(t *testing.T) {
 			id:          mockID,
 			want: want{
 				code:          http.StatusCreated,
-				response:      `{"result":"http://localhost:8080/abcd1234"}`,
+				response:      `{"result":"http://localhost:8080/` + mockID + `"}`,
 				contentType:   "application/json",
 				contentLength: "43",
 			},
@@ -231,7 +231,7 @@ func TestAPIShortenHandler(t *testing.T) {
 			id:          mockID,
 			want: want{
 				code:          http.StatusCreated,
-				response:      `{"result":"http://localhost:8080/abcd1234"}`,
+				response:      `{"result":"http://localhost:8080/` + mockID + `"}`,
 				contentType:   "application/json",
 				contentLength: "43",
 			},
@@ -242,7 +242,7 @@ func TestAPIShortenHandler(t *testing.T) {
 			id:          mockID,
 			want: want{
 				code:          http.StatusCreated,
-				response:      `{"result":"http://localhost:8080/abcd1234"}`,
+				response:      `{"result":"http://localhost:8080/` + mockID + `"}`,
 				contentType:   "application/json",
 				contentLength: "43",
 			},
@@ -253,7 +253,7 @@ func TestAPIShortenHandler(t *testing.T) {
 			id:          mockID,
 			want: want{
 				code:          http.StatusCreated,
-				response:      `{"result":"http://localhost:8080/abcd1234"}`,
+				response:      `{"result":"http://localhost:8080/` + mockID + `"}`,
 				contentType:   "application/json",
 				contentLength: "43",
 			},
@@ -311,7 +311,7 @@ func TestAPIShortenHandler(t *testing.T) {
 			resAddr:     "http://different-host:9090",
 			want: want{
 				code:          http.StatusCreated,
-				response:      `{"result":"http://different-host:9090/abcd1234"}`,
+				response:      `{"result":"http://different-host:9090/` + mockID + `"}`,
 				contentType:   "application/json",
 				contentLength: "48",
 			},
@@ -358,6 +358,9 @@ func TestAPIShortenHandler(t *testing.T) {
 			}
 			h := NewHandler(mockedShortener, resAddr)
 
+			r := chi.NewRouter()
+			r.Post("/api/shorten", h.apiShortenHandler)
+
 			var body *strings.Reader
 			switch tt.name {
 			case "Invalid JSON body":
@@ -377,7 +380,7 @@ func TestAPIShortenHandler(t *testing.T) {
 
 			w := httptest.NewRecorder()
 
-			h.apiShortenHandler(w, req)
+			r.ServeHTTP(w, req)
 
 			res := w.Result()
 
