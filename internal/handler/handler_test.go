@@ -37,10 +37,9 @@ func (m *mockShortener) Expand(id string) (string, bool) {
 
 func TestShortenHandler(t *testing.T) {
 	type want struct {
-		code          int
-		response      string
-		contentType   string
-		contentLength string
+		code        int
+		response    string
+		contentType string
 	}
 	tests := []struct {
 		name        string
@@ -55,10 +54,9 @@ func TestShortenHandler(t *testing.T) {
 			originalURL: mockOriginalURL,
 			id:          mockID,
 			want: want{
-				code:          http.StatusCreated,
-				response:      "http://localhost:8080/" + mockID,
-				contentType:   "text/plain; charset=utf-8",
-				contentLength: "30",
+				code:        http.StatusCreated,
+				response:    "http://localhost:8080/" + mockID,
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 		{
@@ -66,10 +64,9 @@ func TestShortenHandler(t *testing.T) {
 			originalURL: "http://httpbin.org",
 			id:          mockID,
 			want: want{
-				code:          http.StatusCreated,
-				response:      "http://localhost:8080/" + mockID,
-				contentType:   "text/plain; charset=utf-8",
-				contentLength: "30",
+				code:        http.StatusCreated,
+				response:    "http://localhost:8080/" + mockID,
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 		{
@@ -77,10 +74,9 @@ func TestShortenHandler(t *testing.T) {
 			originalURL: "example.com",
 			id:          mockID,
 			want: want{
-				code:          http.StatusCreated,
-				response:      "http://localhost:8080/" + mockID,
-				contentType:   "text/plain; charset=utf-8",
-				contentLength: "30",
+				code:        http.StatusCreated,
+				response:    "http://localhost:8080/" + mockID,
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 		{
@@ -88,10 +84,9 @@ func TestShortenHandler(t *testing.T) {
 			originalURL: mockOriginalURL + "/example?test=go&test=lang",
 			id:          mockID,
 			want: want{
-				code:          http.StatusCreated,
-				response:      "http://localhost:8080/" + mockID,
-				contentType:   "text/plain; charset=utf-8",
-				contentLength: "30",
+				code:        http.StatusCreated,
+				response:    "http://localhost:8080/" + mockID,
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 		{
@@ -146,10 +141,9 @@ func TestShortenHandler(t *testing.T) {
 			id:          mockID,
 			resAddr:     "http://different-host:9090",
 			want: want{
-				code:          http.StatusCreated,
-				response:      "http://different-host:9090/" + mockID,
-				contentType:   "text/plain; charset=utf-8",
-				contentLength: "35",
+				code:        http.StatusCreated,
+				response:    "http://different-host:9090/" + mockID,
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 	}
@@ -194,17 +188,15 @@ func TestShortenHandler(t *testing.T) {
 			assert.Equal(t, tt.want.response, string(resBody))
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
-			assert.Equal(t, tt.want.contentLength, res.Header.Get("Content-Length"))
 		})
 	}
 }
 
 func TestAPIShortenHandler(t *testing.T) {
 	type want struct {
-		code          int
-		response      string
-		contentType   string
-		contentLength string
+		code        int
+		response    string
+		contentType string
 	}
 	tests := []struct {
 		name        string
@@ -219,10 +211,9 @@ func TestAPIShortenHandler(t *testing.T) {
 			originalURL: mockOriginalURL,
 			id:          mockID,
 			want: want{
-				code:          http.StatusCreated,
-				response:      `{"result":"http://localhost:8080/` + mockID + `"}`,
-				contentType:   "application/json",
-				contentLength: "43",
+				code:        http.StatusCreated,
+				response:    `{"result":"http://localhost:8080/` + mockID + `"}`,
+				contentType: "application/json",
 			},
 		},
 		{
@@ -230,10 +221,9 @@ func TestAPIShortenHandler(t *testing.T) {
 			originalURL: "http://httpbin.org",
 			id:          mockID,
 			want: want{
-				code:          http.StatusCreated,
-				response:      `{"result":"http://localhost:8080/` + mockID + `"}`,
-				contentType:   "application/json",
-				contentLength: "43",
+				code:        http.StatusCreated,
+				response:    `{"result":"http://localhost:8080/` + mockID + `"}`,
+				contentType: "application/json",
 			},
 		},
 		{
@@ -241,10 +231,9 @@ func TestAPIShortenHandler(t *testing.T) {
 			originalURL: "example.com",
 			id:          mockID,
 			want: want{
-				code:          http.StatusCreated,
-				response:      `{"result":"http://localhost:8080/` + mockID + `"}`,
-				contentType:   "application/json",
-				contentLength: "43",
+				code:        http.StatusCreated,
+				response:    `{"result":"http://localhost:8080/` + mockID + `"}`,
+				contentType: "application/json",
 			},
 		},
 		{
@@ -252,10 +241,9 @@ func TestAPIShortenHandler(t *testing.T) {
 			originalURL: mockOriginalURL + "/example?test=go&test=lang",
 			id:          mockID,
 			want: want{
-				code:          http.StatusCreated,
-				response:      `{"result":"http://localhost:8080/` + mockID + `"}`,
-				contentType:   "application/json",
-				contentLength: "43",
+				code:        http.StatusCreated,
+				response:    `{"result":"http://localhost:8080/` + mockID + `"}`,
+				contentType: "application/json",
 			},
 		},
 		{
@@ -310,10 +298,9 @@ func TestAPIShortenHandler(t *testing.T) {
 			id:          mockID,
 			resAddr:     "http://different-host:9090",
 			want: want{
-				code:          http.StatusCreated,
-				response:      `{"result":"http://different-host:9090/` + mockID + `"}`,
-				contentType:   "application/json",
-				contentLength: "48",
+				code:        http.StatusCreated,
+				response:    `{"result":"http://different-host:9090/` + mockID + `"}`,
+				contentType: "application/json",
 			},
 		},
 		{
@@ -391,7 +378,6 @@ func TestAPIShortenHandler(t *testing.T) {
 			assert.Equal(t, tt.want.response, string(resBody))
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
-			assert.Equal(t, tt.want.contentLength, res.Header.Get("Content-Length"))
 		})
 	}
 }

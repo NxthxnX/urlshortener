@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/NxthxnX/urlshortener/internal/myjson"
@@ -97,7 +96,6 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 	shortURL := h.baseURL + "/" + id
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(shortURL)))
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))
 }
@@ -154,7 +152,6 @@ func (h *Handler) apiShortenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Length", strconv.Itoa(len(jsonBody)))
 	w.WriteHeader(http.StatusCreated)
 	w.Write(jsonBody)
 }
