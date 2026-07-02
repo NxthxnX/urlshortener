@@ -199,6 +199,200 @@ func TestShortenHandler(t *testing.T) {
 	}
 }
 
+func TestAPIShortenHandler(t *testing.T) {
+	type want struct {
+		code          int
+		response      string
+		contentType   string
+		contentLength string
+	}
+	tests := []struct {
+		name        string
+		originalURL string
+		id          string
+		resAddr     string
+		err         error
+		want        want
+	}{
+		{
+			name:        "Full https URL",
+			originalURL: mockOriginalURL,
+			id:          mockID,
+			want: want{
+				code:          http.StatusCreated,
+				response:      `{"result":"http://localhost:8080/abcd1234"}`,
+				contentType:   "application/json",
+				contentLength: "43",
+			},
+		},
+		{
+			name:        "Full http URL",
+			originalURL: "http://httpbin.org",
+			id:          mockID,
+			want: want{
+				code:          http.StatusCreated,
+				response:      `{"result":"http://localhost:8080/abcd1234"}`,
+				contentType:   "application/json",
+				contentLength: "43",
+			},
+		},
+		{
+			name:        "Short URL",
+			originalURL: "example.com",
+			id:          mockID,
+			want: want{
+				code:          http.StatusCreated,
+				response:      `{"result":"http://localhost:8080/abcd1234"}`,
+				contentType:   "application/json",
+				contentLength: "43",
+			},
+		},
+		{
+			name:        "URL with queries",
+			originalURL: mockOriginalURL + "/example?test=go&test=lang",
+			id:          mockID,
+			want: want{
+				code:          http.StatusCreated,
+				response:      `{"result":"http://localhost:8080/abcd1234"}`,
+				contentType:   "application/json",
+				contentLength: "43",
+			},
+		},
+		{
+			name:        "Empty URL",
+			originalURL: "",
+			want: want{
+				code:        http.StatusBadRequest,
+				response:    "Empty URL\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name:        "Generation has failed",
+			originalURL: mockOriginalURL,
+			err:         io.ErrShortBuffer,
+			want: want{
+				code:        http.StatusBadRequest,
+				response:    "short buffer\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name:        "Invalid URL with spaces",
+			originalURL: "ex ample.com",
+			want: want{
+				code:        http.StatusBadRequest,
+				response:    "Invalid URL format\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name:        "Incomplete protocol",
+			originalURL: "http:/invalid",
+			want: want{
+				code:        http.StatusBadRequest,
+				response:    "Invalid URL format\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name:        "URL only with protocol",
+			originalURL: "http://",
+			want: want{
+				code:        http.StatusBadRequest,
+				response:    "Invalid URL format\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name:        "Different resAddr",
+			originalURL: mockOriginalURL,
+			id:          mockID,
+			resAddr:     "http://different-host:9090",
+			want: want{
+				code:          http.StatusCreated,
+				response:      `{"result":"http://different-host:9090/abcd1234"}`,
+				contentType:   "application/json",
+				contentLength: "48",
+			},
+		},
+		{
+			name:        "Invalid Content-Type",
+			originalURL: mockOriginalURL,
+			want: want{
+				code:        http.StatusBadRequest,
+				response:    "Invalid Content-Type\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name:        "Invalid JSON body",
+			originalURL: "{invalid json",
+			want: want{
+				code:        http.StatusBadRequest,
+				response:    "Invalid request body\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var expectedURLForMock string
+			if strings.HasPrefix(tt.originalURL, "http://") || strings.HasPrefix(tt.originalURL, "https://") {
+				expectedURLForMock = tt.originalURL
+			} else if tt.originalURL != "" && tt.originalURL != "{invalid json" {
+				expectedURLForMock = "http://" + tt.originalURL
+			} else {
+				expectedURLForMock = tt.originalURL
+			}
+
+			mockedShortener := new(mockShortener)
+			if expectedURLForMock != "" && tt.name != "Invalid Content-Type" && tt.name != "Invalid JSON body" {
+				mockedShortener.On("Shorten", expectedURLForMock).Return(tt.id, tt.err)
+			}
+
+			resAddr := tt.resAddr
+			if resAddr == "" {
+				resAddr = mockResAddr
+			}
+			h := NewHandler(mockedShortener, resAddr)
+
+			var body *strings.Reader
+			switch tt.name {
+			case "Invalid JSON body":
+				body = strings.NewReader(tt.originalURL)
+			default:
+				body = strings.NewReader(`{"url":"` + tt.originalURL + `"}`)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, "/api/shorten", body)
+
+			switch tt.name {
+			case "Invalid Content-Type":
+				req.Header.Set("Content-Type", "text/plain")
+			default:
+				req.Header.Set("Content-Type", "application/json")
+			}
+
+			w := httptest.NewRecorder()
+
+			h.apiShortenHandler(w, req)
+
+			res := w.Result()
+
+			resBody, err := io.ReadAll(res.Body)
+
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want.response, string(resBody))
+			assert.Equal(t, tt.want.code, res.StatusCode)
+			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
+			assert.Equal(t, tt.want.contentLength, res.Header.Get("Content-Length"))
+		})
+	}
+}
+
 func TestExpandHandler(t *testing.T) {
 	type want struct {
 		code        int
@@ -400,6 +594,57 @@ func TestServeHTTP(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "POST /api/shorten",
+			method: http.MethodPost,
+			path:   "/api/shorten",
+			body:   `{"url":"` + mockOriginalURL + `"}`,
+			want: want{
+				code: http.StatusCreated,
+				header: map[string]string{
+					"Content-Type": "application/json",
+				},
+			},
+		},
+		{
+			name:   "POST /api/shorten empty URL",
+			method: http.MethodPost,
+			path:   "/api/shorten",
+			body:   `{"url":""}`,
+			want: want{
+				code: http.StatusBadRequest,
+				body: "Empty URL\n",
+				header: map[string]string{
+					"Content-Type": "text/plain; charset=utf-8",
+				},
+			},
+		},
+		{
+			name:   "POST /api/shorten invalid JSON",
+			method: http.MethodPost,
+			path:   "/api/shorten",
+			body:   "{invalid",
+			want: want{
+				code: http.StatusBadRequest,
+				body: "Invalid request body\n",
+				header: map[string]string{
+					"Content-Type": "text/plain; charset=utf-8",
+				},
+			},
+		},
+		{
+			name:   "POST /api/shorten wrong Content-Type",
+			method: http.MethodPost,
+			path:   "/api/shorten",
+			body:   `{"url":"` + mockOriginalURL + `"}`,
+			want: want{
+				code: http.StatusBadRequest,
+				body: "Invalid Content-Type\n",
+				header: map[string]string{
+					"Content-Type": "text/plain; charset=utf-8",
+				},
+			},
+		},
 	}
 
 	repo := repository.NewMemoryRepository()
@@ -422,6 +667,10 @@ func TestServeHTTP(t *testing.T) {
 
 			req, err := http.NewRequest(tt.method, targetURL, strings.NewReader(tt.body))
 			require.NoError(t, err)
+
+			if tt.path == "/api/shorten" && tt.method == http.MethodPost && tt.name != "POST /api/shorten wrong Content-Type" {
+				req.Header.Set("Content-Type", "application/json")
+			}
 
 			client := &http.Client{
 				CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
