@@ -165,6 +165,8 @@ func runPlainShortenScenario(t *testing.T, tt shortenScenario) {
 	r.ServeHTTP(w, req)
 
 	res := w.Result()
+	defer res.Body.Close()
+
 	resBody, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 
@@ -198,6 +200,8 @@ func runAPIShortenScenario(t *testing.T, tt shortenScenario, body string, conten
 	r.ServeHTTP(w, req)
 
 	res := w.Result()
+	defer res.Body.Close()
+
 	resBody, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 
@@ -343,9 +347,9 @@ func TestExpandHandler(t *testing.T) {
 			r.ServeHTTP(w, req)
 
 			res := w.Result()
+			defer res.Body.Close()
 
 			resBody, err := io.ReadAll(res.Body)
-
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.want.response, string(resBody))

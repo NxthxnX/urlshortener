@@ -85,12 +85,13 @@ func writeShortenError(w http.ResponseWriter, err error) {
 
 // shortenHandler handles POST / requests to shorten a URL.
 func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Cannot read body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 
 	shortURL, err := h.shortenURL(string(body))
 	if err != nil {
@@ -105,6 +106,8 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 
 // apiShortenHandler handles POST /api/shorten JSON requests to shorten a URL.
 func (h *Handler) apiShortenHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		http.Error(w, "Invalid Content-Type", http.StatusUnsupportedMediaType)
@@ -116,7 +119,6 @@ func (h *Handler) apiShortenHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Cannot read body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 
 	req := myjson.APIShortenRequest{}
 
