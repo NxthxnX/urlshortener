@@ -5,6 +5,7 @@ import (
 
 	"github.com/NxthxnX/urlshortener/internal/handler"
 	"github.com/NxthxnX/urlshortener/internal/logger"
+	"github.com/NxthxnX/urlshortener/internal/middleware"
 	"github.com/NxthxnX/urlshortener/internal/repository"
 	"github.com/NxthxnX/urlshortener/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -28,7 +29,7 @@ func run() error {
 	h := handler.NewHandler(svc, string(options.baseURL))
 
 	r := chi.NewRouter()
-	r.Use(logger.WithLogging)
+	r.Use(logger.WithLogging, middleware.WithEncoding)
 	h.RegisterRoutes(r)
 
 	return http.ListenAndServe(string(options.servAddr), r)
