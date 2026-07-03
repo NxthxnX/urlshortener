@@ -43,10 +43,6 @@ func (h *Handler) RegisterRoutes(r *chi.Mux) {
 	r.Post("/", h.shortenHandler)
 	r.Post("/api/shorten", h.apiShortenHandler)
 	r.Get("/{id}", h.expandHandler)
-
-	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	})
 }
 
 func (h *Handler) buildShortURL(id string) string {

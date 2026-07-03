@@ -405,10 +405,6 @@ func TestServeHTTP(t *testing.T) {
 			body:   mockOriginalURL,
 			want: want{
 				code: http.StatusMethodNotAllowed,
-				body: "Method not allowed\n",
-				header: map[string]string{
-					"Content-Type": "text/plain; charset=utf-8",
-				},
 			},
 		},
 		{
@@ -428,10 +424,6 @@ func TestServeHTTP(t *testing.T) {
 			path:   "/",
 			want: want{
 				code: http.StatusMethodNotAllowed,
-				body: "Method not allowed\n",
-				header: map[string]string{
-					"Content-Type": "text/plain; charset=utf-8",
-				},
 			},
 		},
 		{
@@ -452,10 +444,6 @@ func TestServeHTTP(t *testing.T) {
 			path:   "/",
 			want: want{
 				code: http.StatusMethodNotAllowed,
-				body: "Method not allowed\n",
-				header: map[string]string{
-					"Content-Type": "text/plain; charset=utf-8",
-				},
 			},
 		},
 		{
@@ -464,10 +452,6 @@ func TestServeHTTP(t *testing.T) {
 			path:   "/",
 			want: want{
 				code: http.StatusMethodNotAllowed,
-				body: "Method not allowed\n",
-				header: map[string]string{
-					"Content-Type": "text/plain; charset=utf-8",
-				},
 			},
 		},
 		{
