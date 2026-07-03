@@ -92,7 +92,7 @@ var sharedShortenScenarios = []shortenScenario{
 		name:        "Generation has failed",
 		originalURL: mockOriginalURL,
 		err:         io.ErrShortBuffer,
-		wantCode:    http.StatusBadRequest,
+		wantCode:    http.StatusInternalServerError,
 		wantBody:    "short buffer\n",
 		contentType: "text/plain; charset=utf-8",
 	},
@@ -241,7 +241,7 @@ func TestAPIShortenHandler(t *testing.T) {
 			name:        "Invalid Content-Type",
 			body:        `{"url":"` + mockOriginalURL + `"}`,
 			contentType: "text/plain",
-			wantCode:    http.StatusBadRequest,
+			wantCode:    http.StatusUnsupportedMediaType,
 			wantBody:    "Invalid Content-Type\n",
 		},
 		{
@@ -321,7 +321,7 @@ func TestExpandHandler(t *testing.T) {
 			id:          mockID,
 			ok:          false,
 			want: want{
-				code:        http.StatusBadRequest,
+				code:        http.StatusNotFound,
 				response:    "Not found\n",
 				contentType: "text/plain; charset=utf-8",
 			},
@@ -400,7 +400,7 @@ func TestServeHTTP(t *testing.T) {
 			path:   "/some-path",
 			body:   mockOriginalURL,
 			want: want{
-				code: http.StatusBadRequest,
+				code: http.StatusMethodNotAllowed,
 				body: "Method not allowed\n",
 				header: map[string]string{
 					"Content-Type": "text/plain; charset=utf-8",
@@ -423,7 +423,7 @@ func TestServeHTTP(t *testing.T) {
 			method: http.MethodGet,
 			path:   "/",
 			want: want{
-				code: http.StatusBadRequest,
+				code: http.StatusMethodNotAllowed,
 				body: "Method not allowed\n",
 				header: map[string]string{
 					"Content-Type": "text/plain; charset=utf-8",
@@ -435,7 +435,7 @@ func TestServeHTTP(t *testing.T) {
 			method: http.MethodGet,
 			path:   "/nonexistent",
 			want: want{
-				code: http.StatusBadRequest,
+				code: http.StatusNotFound,
 				body: "Not found\n",
 				header: map[string]string{
 					"Content-Type": "text/plain; charset=utf-8",
@@ -447,7 +447,7 @@ func TestServeHTTP(t *testing.T) {
 			method: http.MethodPut,
 			path:   "/",
 			want: want{
-				code: http.StatusBadRequest,
+				code: http.StatusMethodNotAllowed,
 				body: "Method not allowed\n",
 				header: map[string]string{
 					"Content-Type": "text/plain; charset=utf-8",
@@ -459,7 +459,7 @@ func TestServeHTTP(t *testing.T) {
 			method: http.MethodDelete,
 			path:   "/",
 			want: want{
-				code: http.StatusBadRequest,
+				code: http.StatusMethodNotAllowed,
 				body: "Method not allowed\n",
 				header: map[string]string{
 					"Content-Type": "text/plain; charset=utf-8",
@@ -510,7 +510,7 @@ func TestServeHTTP(t *testing.T) {
 			path:   "/api/shorten",
 			body:   `{"url":"` + mockOriginalURL + `"}`,
 			want: want{
-				code: http.StatusBadRequest,
+				code: http.StatusUnsupportedMediaType,
 				body: "Invalid Content-Type\n",
 				header: map[string]string{
 					"Content-Type": "text/plain; charset=utf-8",

@@ -45,7 +45,7 @@ func (h *Handler) RegisterRoutes(r *chi.Mux) {
 	r.Get("/{id}", h.expandHandler)
 
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Method not allowed", http.StatusBadRequest)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	})
 }
 
@@ -79,7 +79,7 @@ func writeShortenError(w http.ResponseWriter, err error) {
 	case errors.Is(err, errInvalidURL):
 		http.Error(w, "Invalid URL format", http.StatusBadRequest)
 	default:
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -107,7 +107,7 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) apiShortenHandler(w http.ResponseWriter, r *http.Request) {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
-		http.Error(w, "Invalid Content-Type", http.StatusBadRequest)
+		http.Error(w, "Invalid Content-Type", http.StatusUnsupportedMediaType)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (h *Handler) apiShortenHandler(w http.ResponseWriter, r *http.Request) {
 	resp := myjson.APIShortenResponse{Result: shortURL}
 	jsonBody, err := easyjson.Marshal(resp)
 	if err != nil {
-		http.Error(w, "Error encoding JSON", http.StatusBadRequest)
+		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
 		return
 	}
 
@@ -153,7 +153,7 @@ func (h *Handler) expandHandler(w http.ResponseWriter, r *http.Request) {
 
 	originalURL, ok := h.shortener.Expand(id)
 	if !ok {
-		http.Error(w, "Not found", http.StatusBadRequest)
+		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
