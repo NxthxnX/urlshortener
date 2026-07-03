@@ -5,7 +5,8 @@ import (
 	"flag"
 	"net/url"
 	"os"
-	"strings"
+
+	"github.com/NxthxnX/urlshortener/internal/urlutils"
 )
 
 type webURL string
@@ -20,21 +21,14 @@ func (link *webURL) String() string {
 }
 
 func (link *webURL) Set(value string) error {
-	parsedURL, err := url.ParseRequestURI(value)
+	normalized, err := urlutils.Normalize(value)
+	if err != nil {
+		return errors.New("invalid URL format")
+	}
 
-	if err != nil || parsedURL.Scheme == "" {
-		if !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://") {
-			value = "http://" + value
-		}
-
-		parsedURL, err = url.ParseRequestURI(value)
-		if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
-			return errors.New("invalid URL format")
-		}
-	} else {
-		if parsedURL.Host == "" {
-			return errors.New("invalid URL format")
-		}
+	parsedURL, err := url.ParseRequestURI(normalized)
+	if err != nil {
+		return errors.New("invalid URL format")
 	}
 
 	*link = webURL(parsedURL.String())

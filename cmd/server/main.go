@@ -17,7 +17,9 @@ func main() {
 }
 
 func run() error {
-	logger.Initialize("info")
+	if err := logger.Initialize("info"); err != nil {
+		return err
+	}
 
 	parseFlags()
 

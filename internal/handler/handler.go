@@ -3,13 +3,19 @@ package handler
 import (
 	"errors"
 	"io"
+	"mime"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/NxthxnX/urlshortener/internal/myjson"
+	"github.com/NxthxnX/urlshortener/internal/urlutils"
 	"github.com/go-chi/chi/v5"
 	"github.com/mailru/easyjson"
+)
+
+var (
+	errEmptyURL   = errors.New("empty URL")
+	errInvalidURL = errors.New("invalid URL")
 )
 
 // Shortener defines the interface for URL shortening operations.
@@ -24,11 +30,11 @@ type Handler struct {
 	baseURL   string
 }
 
-// New creates a new Handler.
+// NewHandler creates a new Handler.
 func NewHandler(s Shortener, baseURL string) *Handler {
 	return &Handler{
 		shortener: s,
-		baseURL:   baseURL,
+		baseURL:   strings.TrimSuffix(baseURL, "/"),
 	}
 }
 
@@ -43,33 +49,42 @@ func (h *Handler) RegisterRoutes(r *chi.Mux) {
 	})
 }
 
-// parseURL parses a raw URL and returns an error if it's invalid.
-func parseURL(rawURL *string) error {
-	if parsedURL, err := url.ParseRequestURI(*rawURL); err != nil || parsedURL.Scheme == "" {
-		if !strings.HasPrefix(*rawURL, "http://") && !strings.HasPrefix(*rawURL, "https://") {
-			*rawURL = "http://" + *rawURL
-		}
+func (h *Handler) buildShortURL(id string) string {
+	return h.baseURL + "/" + id
+}
 
-		parsedURL, err = url.ParseRequestURI(*rawURL)
-		if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
-			return errors.New("invalid URL")
-		}
-	} else {
-		if parsedURL.Host == "" {
-			return errors.New("invalid URL")
-		}
+func (h *Handler) shortenURL(rawURL string) (string, error) {
+	originalURL := strings.TrimSpace(rawURL)
+	if originalURL == "" {
+		return "", errEmptyURL
 	}
 
-	return nil
+	normalized, err := urlutils.Normalize(originalURL)
+	if err != nil {
+		return "", errInvalidURL
+	}
+
+	id, err := h.shortener.Shorten(normalized)
+	if err != nil {
+		return "", err
+	}
+
+	return h.buildShortURL(id), nil
+}
+
+func writeShortenError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, errEmptyURL):
+		http.Error(w, "Empty URL", http.StatusBadRequest)
+	case errors.Is(err, errInvalidURL):
+		http.Error(w, "Invalid URL format", http.StatusBadRequest)
+	default:
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 }
 
 // shortenHandler handles POST / requests to shorten a URL.
 func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.Error(w, "Not found", http.StatusBadRequest)
-		return
-	}
-
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Cannot read body", http.StatusBadRequest)
@@ -77,37 +92,21 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	originalURL := strings.TrimSpace(string(body))
-	if originalURL == "" {
-		http.Error(w, "Empty URL", http.StatusBadRequest)
-		return
-	}
-
-	if err := parseURL(&originalURL); err != nil {
-		http.Error(w, "Invalid URL format", http.StatusBadRequest)
-		return
-	}
-
-	id, err := h.shortener.Shorten(originalURL)
+	shortURL, err := h.shortenURL(string(body))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeShortenError(w, err)
 		return
 	}
-	shortURL := h.baseURL + "/" + id
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))
 }
 
-// shortenHandler handles POST /api/shorten JSON requests to shorten a URL.
+// apiShortenHandler handles POST /api/shorten JSON requests to shorten a URL.
 func (h *Handler) apiShortenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/api/shorten" {
-		http.Error(w, "Not found", http.StatusBadRequest)
-		return
-	}
-
-	if r.Header.Get("Content-Type") != "application/json" {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
 		http.Error(w, "Invalid Content-Type", http.StatusBadRequest)
 		return
 	}
@@ -119,32 +118,20 @@ func (h *Handler) apiShortenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	req := myjson.ApiShortenRequest{}
+	req := myjson.APIShortenRequest{}
 
 	if err := easyjson.Unmarshal(body, &req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	originalURL := strings.TrimSpace(req.URL)
-	if originalURL == "" {
-		http.Error(w, "Empty URL", http.StatusBadRequest)
-		return
-	}
-
-	if err := parseURL(&originalURL); err != nil {
-		http.Error(w, "Invalid URL format", http.StatusBadRequest)
-		return
-	}
-
-	id, err := h.shortener.Shorten(originalURL)
+	shortURL, err := h.shortenURL(req.URL)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeShortenError(w, err)
 		return
 	}
-	shortURL := h.baseURL + "/" + id
 
-	resp := myjson.ApiShortenResponse{Result: shortURL}
+	resp := myjson.APIShortenResponse{Result: shortURL}
 	jsonBody, err := easyjson.Marshal(resp)
 	if err != nil {
 		http.Error(w, "Error encoding JSON", http.StatusBadRequest)
