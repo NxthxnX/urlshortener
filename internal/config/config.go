@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"errors"
@@ -12,10 +12,10 @@ import (
 
 type webURL string
 
-var options struct {
-	servAddr        string
-	baseURL         webURL
-	fileStoragePath string
+type Config struct {
+	ServAddr        string
+	BaseURL         string
+	FileStoragePath string
 }
 
 func (link *webURL) String() string {
@@ -38,7 +38,13 @@ func (link *webURL) Set(value string) error {
 	return nil
 }
 
-func parseFlags() {
+func ParseFlags() Config {
+	var options struct {
+		servAddr        string
+		baseURL         webURL
+		fileStoragePath string
+	}
+
 	options.baseURL = webURL("http://localhost:8080")
 
 	flag.StringVar(&options.servAddr, "a", "localhost:8080", "server address")
@@ -53,7 +59,13 @@ func parseFlags() {
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
 		options.baseURL = webURL(envBaseURL)
 	}
-	if _, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
-		options.fileStoragePath = os.Getenv("FILE_STORAGE_PATH")
+	if envFileStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
+		options.fileStoragePath = envFileStoragePath
+	}
+
+	return Config{
+		ServAddr:        options.servAddr,
+		BaseURL:         string(options.baseURL),
+		FileStoragePath: options.fileStoragePath,
 	}
 }

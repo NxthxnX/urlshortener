@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"github.com/NxthxnX/urlshortener/internal/config"
 	"github.com/NxthxnX/urlshortener/internal/handler"
 	"github.com/NxthxnX/urlshortener/internal/logger"
 	"github.com/NxthxnX/urlshortener/internal/middleware"
@@ -22,21 +23,21 @@ func run() error {
 		return err
 	}
 
-	parseFlags()
+	cfg := config.ParseFlags()
 
 	repo, err := repository.New(repository.Config{
-		FileStoragePath: options.fileStoragePath,
+		FileStoragePath: cfg.FileStoragePath,
 	})
 	if err != nil {
 		return err
 	}
 
 	svc := service.NewShortenerService(repo)
-	h := handler.NewHandler(svc, string(options.baseURL))
+	h := handler.NewHandler(svc, cfg.BaseURL)
 
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging, middleware.WithEncoding)
 	h.RegisterRoutes(r)
 
-	return http.ListenAndServe(string(options.servAddr), r)
+	return http.ListenAndServe(cfg.ServAddr, r)
 }
