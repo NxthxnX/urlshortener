@@ -5,6 +5,7 @@ import (
 	"flag"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/NxthxnX/urlshortener/internal/urlutils"
 )
@@ -12,8 +13,9 @@ import (
 type webURL string
 
 var options struct {
-	servAddr string
-	baseURL  webURL
+	servAddr        string
+	baseURL         webURL
+	fileStoragePath string
 }
 
 func (link *webURL) String() string {
@@ -41,6 +43,7 @@ func parseFlags() {
 
 	flag.StringVar(&options.servAddr, "a", "localhost:8080", "server address")
 	flag.Var(&options.baseURL, "b", "result URL address")
+	flag.StringVar(&options.fileStoragePath, "f", filepath.Join("tmp", "short-url-db.json"), "file storage path")
 
 	flag.Parse()
 
@@ -49,5 +52,8 @@ func parseFlags() {
 	}
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
 		options.baseURL = webURL(envBaseURL)
+	}
+	if _, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
+		options.fileStoragePath = os.Getenv("FILE_STORAGE_PATH")
 	}
 }

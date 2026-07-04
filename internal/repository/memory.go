@@ -4,11 +4,7 @@ import (
 	"sync"
 )
 
-// Repository defines the interface for URL storage.
-type Repository interface {
-	Save(id, originalURL string)
-	FindByID(id string) (string, bool)
-}
+var _ Repository = (*MemoryRepository)(nil)
 
 // MemoryRepository stores URL mappings in memory.
 type MemoryRepository struct {

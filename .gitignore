@@ -18,6 +18,9 @@ cmd/server/shortener
 # Dependency directories (remove the comment below to include it)
 vendor/
 
+# Temporary directories
+**/tmp/
+
 # IDEs directories
 .idea
 .vscode

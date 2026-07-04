@@ -24,7 +24,13 @@ func run() error {
 
 	parseFlags()
 
-	repo := repository.NewMemoryRepository()
+	repo, err := repository.New(repository.Config{
+		FileStoragePath: options.fileStoragePath,
+	})
+	if err != nil {
+		return err
+	}
+
 	svc := service.NewShortenerService(repo)
 	h := handler.NewHandler(svc, string(options.baseURL))
 
