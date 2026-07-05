@@ -380,6 +380,7 @@ func TestServeHTTP(t *testing.T) {
 			body:   mockOriginalURL,
 			want: want{
 				code: http.StatusCreated,
+				body: `http://localhost:8080/[a-zA-Z0-9]+`,
 				header: map[string]string{
 					"Content-Type": "text/plain; charset=utf-8",
 				},
@@ -461,6 +462,7 @@ func TestServeHTTP(t *testing.T) {
 			body:   `{"url":"` + mockOriginalURL + `"}`,
 			want: want{
 				code: http.StatusCreated,
+				body: `{"result":"http://localhost:8080/[a-zA-Z0-9]+"}`,
 				header: map[string]string{
 					"Content-Type": "application/json",
 				},
@@ -547,7 +549,7 @@ func TestServeHTTP(t *testing.T) {
 			assert.Equal(t, tt.want.code, res.StatusCode)
 
 			if tt.want.body != "" {
-				assert.Equal(t, tt.want.body, string(resBody))
+				assert.Regexp(t, tt.want.body, string(resBody))
 			}
 
 			for key, expectedVal := range tt.want.header {
