@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"github.com/NxthxnX/urlshortener/internal/model"
@@ -47,7 +48,7 @@ func NewFileRepository(filePath string) (*FileRepository, error) {
 // Save stores a mapping between id and originalURL and appends it to the storage file.
 func (r *FileRepository) Save(id, originalURL string) {
 	record := model.URLRecord{
-		UUID:        r.nextUUID,
+		UUID:        strconv.Itoa(r.nextUUID),
 		ShortURL:    id,
 		OriginalURL: originalURL,
 	}
@@ -101,8 +102,9 @@ func loadFromFile(filePath string) (map[string]string, int, error) {
 
 		urls[record.ShortURL] = record.OriginalURL
 
-		if record.UUID >= nextUUID {
-			nextUUID = record.UUID + 1
+		uuid, err := strconv.Atoi(record.UUID)
+		if err == nil && uuid >= nextUUID {
+			nextUUID = uuid + 1
 		}
 	}
 

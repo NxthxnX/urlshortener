@@ -50,7 +50,7 @@ func TestFileRepository_SaveAndFind(t *testing.T) {
 
 	records := readRecordsFromFile(t, filePath)
 	require.Len(t, records, 1)
-	assert.Equal(t, 1, records[0].UUID)
+	assert.Equal(t, "1", records[0].UUID)
 	assert.Equal(t, "abc12345", records[0].ShortURL)
 	assert.Equal(t, "http://example.com", records[0].OriginalURL)
 
