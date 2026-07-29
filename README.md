@@ -37,6 +37,7 @@ go run ./cmd/client
 | `-a` | `localhost:8080` | Адрес и порт HTTP-сервера |
 | `-b` | `http://localhost:8080` | Базовый URL для формирования коротких ссылок |
 | `-f` | `tmp/short-url-db.json` | Путь к файлу персистентного хранилища |
+| `-d` | `""` | Connection string к PostgreSQL |
 
 Пример:
 
@@ -53,6 +54,7 @@ go run ./cmd/server -a localhost:9090 -b http://localhost:9090 -f data/urls.json
 | `SERVER_ADDRESS` | Адрес сервера (аналог `-a`) |
 | `BASE_URL` | Базовый URL (аналог `-b`) |
 | `FILE_STORAGE_PATH` | Путь к файлу хранилища (аналог `-f`) |
+| `DATABASE_DSN` | Connection string к PostgreSQL (аналог `-d`) |
 
 Пример:
 
@@ -62,7 +64,7 @@ SERVER_ADDRESS=localhost:9090 BASE_URL=http://localhost:9090 go run ./cmd/server
 
 Примечание:
 
-При установке `FILE_STORAGE_PATH=""`, данные сохраняются в оперативной памяти.
+In-memory хранилище используется только при отсутствии `DATABASE_DSN` и при явном указании `FILE_STORAGE_PATH=""` (поскольку без этого переменная игнорируется, и берётся значение по умолчанию из флага `-f`).
 
 ## HTTP API
 
@@ -71,6 +73,7 @@ SERVER_ADDRESS=localhost:9090 BASE_URL=http://localhost:9090 go run ./cmd/server
 | `POST` | `/` | Сократить URL. Тело — `text/plain`, ответ — короткая ссылка (`201 Created`) |
 | `POST` | `/api/shorten` | Сократить URL. Тело — `{"url":"..."}`, ответ — `{"result":"..."}` (`201 Created`) |
 | `GET` | `/{id}` | Редирект на исходный URL (`307 Temporary Redirect`) |
+| `GET` | `/ping` | Health check: проверяет соединение с PostgreSQL (`200 OK`) |
 
 Примеры с `curl` (bash):
 
@@ -92,6 +95,9 @@ curl -X POST http://localhost:8080/api/shorten \
 
 # редирект
 curl -L http://localhost:8080/{id}
+
+# ping БД
+curl -i http://localhost:8080/ping
 ```
 
 ## Структура проекта

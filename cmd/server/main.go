@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/NxthxnX/urlshortener/internal/config"
+	"github.com/NxthxnX/urlshortener/internal/config/db"
 	"github.com/NxthxnX/urlshortener/internal/handler"
 	"github.com/NxthxnX/urlshortener/internal/logger"
 	"github.com/NxthxnX/urlshortener/internal/middleware"
@@ -25,6 +26,12 @@ func run() error {
 
 	cfg := config.ParseFlags()
 
+	store, err := db.Open(cfg.DatabaseDSN)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
 	repo, err := repository.New(repository.Config{
 		FileStoragePath: cfg.FileStoragePath,
 	})
@@ -37,6 +44,7 @@ func run() error {
 
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging, middleware.WithEncoding)
+	r.Get("/ping", handler.PingHandler(store))
 	h.RegisterRoutes(r)
 
 	return http.ListenAndServe(cfg.ServAddr, r)

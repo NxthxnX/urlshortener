@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"io"
 	"mime"
@@ -24,6 +25,13 @@ type Shortener interface {
 	Expand(id string) (string, bool)
 }
 
+//go:generate mockgen -source=handler.go -destination=mocks/mock_pinger.go -package=mocks Pinger
+
+// Pinger checks database connectivity.
+type Pinger interface {
+	Ping(ctx context.Context) error
+}
+
 // Handler handles HTTP requests for the URL shortener.
 type Handler struct {
 	shortener Shortener
@@ -38,7 +46,25 @@ func NewHandler(s Shortener, baseURL string) *Handler {
 	}
 }
 
-// RegisterRoutes registers all routes with the chi router.
+// PingHandler returns a handler that checks the database connection via GET /ping.
+// Register it on the router before parameterized routes like /{id}.
+func PingHandler(db Pinger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if db == nil {
+			http.Error(w, "database is not configured", http.StatusInternalServerError)
+			return
+		}
+
+		if err := db.Ping(r.Context()); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// RegisterRoutes registers URL shortener routes with the chi router.
 func (h *Handler) RegisterRoutes(r *chi.Mux) {
 	r.Post("/", h.shortenHandler)
 	r.Post("/api/shorten", h.apiShortenHandler)

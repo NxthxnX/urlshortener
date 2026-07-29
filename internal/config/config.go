@@ -16,6 +16,7 @@ type Config struct {
 	ServAddr        string
 	BaseURL         string
 	FileStoragePath string
+	DatabaseDSN     string
 }
 
 func (link *webURL) String() string {
@@ -43,6 +44,7 @@ func ParseFlags() Config {
 		servAddr        string
 		baseURL         webURL
 		fileStoragePath string
+		databaseDSN     string
 	}
 
 	options.baseURL = webURL("http://localhost:8080")
@@ -50,6 +52,7 @@ func ParseFlags() Config {
 	flag.StringVar(&options.servAddr, "a", "localhost:8080", "server address")
 	flag.Var(&options.baseURL, "b", "result URL address")
 	flag.StringVar(&options.fileStoragePath, "f", filepath.Join("tmp", "short-url-db.json"), "file storage path")
+	flag.StringVar(&options.databaseDSN, "d", "", "database connection string")
 
 	flag.Parse()
 
@@ -62,10 +65,14 @@ func ParseFlags() Config {
 	if envFileStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
 		options.fileStoragePath = envFileStoragePath
 	}
+	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
+		options.databaseDSN = envDatabaseDSN
+	}
 
 	return Config{
 		ServAddr:        options.servAddr,
 		BaseURL:         string(options.baseURL),
 		FileStoragePath: options.fileStoragePath,
+		DatabaseDSN:     options.databaseDSN,
 	}
 }
