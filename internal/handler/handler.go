@@ -19,13 +19,13 @@ var (
 	errInvalidURL = errors.New("invalid URL")
 )
 
+//go:generate mockgen -source=handler.go -destination=mocks/mock_handler.go -package=mocks
+
 // Shortener defines the interface for URL shortening operations.
 type Shortener interface {
 	Shorten(originalURL string) (string, error)
 	Expand(id string) (string, bool)
 }
-
-//go:generate mockgen -source=handler.go -destination=mocks/mock_pinger.go -package=mocks Pinger
 
 // Pinger checks database connectivity.
 type Pinger interface {

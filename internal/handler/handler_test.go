@@ -7,12 +7,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/NxthxnX/urlshortener/internal/handler/mocks"
 	"github.com/NxthxnX/urlshortener/internal/repository"
 	"github.com/NxthxnX/urlshortener/internal/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 const (
@@ -20,20 +21,6 @@ const (
 	mockOriginalURL = "https://www.example.com"
 	mockID          = "abcd1234"
 )
-
-type mockShortener struct {
-	mock.Mock
-}
-
-func (m *mockShortener) Shorten(originalURL string) (string, error) {
-	args := m.Called(originalURL)
-	return args.String(0), args.Error(1)
-}
-
-func (m *mockShortener) Expand(id string) (string, bool) {
-	args := m.Called(id)
-	return args.String(0), args.Bool(1)
-}
 
 func expectedURLForMock(originalURL string) string {
 	if strings.HasPrefix(originalURL, "http://") || strings.HasPrefix(originalURL, "https://") {
@@ -134,13 +121,13 @@ func apiShortURL(resAddr, id string) string {
 	return `{"result":"` + resAddr + `/` + id + `"}`
 }
 
-func setupShortenMock(tt shortenScenario) *mockShortener {
-	mockedShortener := new(mockShortener)
-	expectedURL := expectedURLForMock(tt.originalURL)
-	if expectedURL != "" {
-		mockedShortener.On("Shorten", expectedURL).Return(tt.id, tt.err)
+func setupShortenMock(ctrl *gomock.Controller, tt shortenScenario) *mocks.MockShortener {
+	m := mocks.NewMockShortener(ctrl)
+
+	if tt.wantCode == http.StatusCreated || tt.err != nil {
+		m.EXPECT().Shorten(expectedURLForMock(tt.originalURL)).Return(tt.id, tt.err)
 	}
-	return mockedShortener
+	return m
 }
 
 func resolveResAddr(resAddr string) string {
@@ -153,7 +140,8 @@ func resolveResAddr(resAddr string) string {
 func runPlainShortenScenario(t *testing.T, tt shortenScenario) {
 	t.Helper()
 
-	mockedShortener := setupShortenMock(tt)
+	ctrl := gomock.NewController(t)
+	mockedShortener := setupShortenMock(ctrl, tt)
 	resAddr := resolveResAddr(tt.resAddr)
 	h := NewHandler(mockedShortener, resAddr)
 
@@ -187,7 +175,8 @@ func runPlainShortenScenario(t *testing.T, tt shortenScenario) {
 func runAPIShortenScenario(t *testing.T, tt shortenScenario, body string, contentType string) {
 	t.Helper()
 
-	mockedShortener := setupShortenMock(tt)
+	ctrl := gomock.NewController(t)
+	mockedShortener := setupShortenMock(ctrl, tt)
 	resAddr := resolveResAddr(tt.resAddr)
 	h := NewHandler(mockedShortener, resAddr)
 
@@ -334,8 +323,9 @@ func TestExpandHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockedShortener := new(mockShortener)
-			mockedShortener.On("Expand", tt.id).Return(tt.originalURL, tt.ok)
+			ctrl := gomock.NewController(t)
+			mockedShortener := mocks.NewMockShortener(ctrl)
+			mockedShortener.EXPECT().Expand(tt.id).Return(tt.originalURL, tt.ok)
 			h := NewHandler(mockedShortener, mockResAddr)
 
 			r := chi.NewRouter()
