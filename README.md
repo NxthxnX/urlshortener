@@ -16,7 +16,7 @@
 go run ./cmd/server
 ```
 
-Сервер поднимается на `localhost:8080`, короткие ссылки формируются с базой `http://localhost:8080`, данные сохраняются в `tmp/short-url-db.json`.
+Сервер поднимается на `localhost:8080`, короткие ссылки формируются с базой `http://localhost:8080`. По умолчанию (без `-d`) данные сохраняются в `tmp/short-url-db.json`.
 
 ### Клиент
 
@@ -27,6 +27,20 @@ go run ./cmd/client
 ```
 
 Клиент запрашивает длинный URL через stdin и отправляет его на сервер. Ответ — короткая ссылка.
+
+### PostgreSQL
+
+```bash
+go run ./cmd/server -d "postgres://postgres:postgres@localhost:5432/shortener?sslmode=disable"
+```
+
+Или через переменную окружения:
+
+```bash
+DATABASE_DSN="postgres://postgres:postgres@localhost:5432/shortener?sslmode=disable" go run ./cmd/server
+```
+
+При старте сервис сам создаёт необходимые таблицы.
 
 ## Конфигурация сервера
 
@@ -61,6 +75,14 @@ go run ./cmd/server -a localhost:9090 -b http://localhost:9090 -f data/urls.json
 ```bash
 SERVER_ADDRESS=localhost:9090 BASE_URL=http://localhost:9090 go run ./cmd/server
 ```
+
+### Выбор хранилища
+
+Приоритет (первое подходящее значение побеждает):
+
+1. **PostgreSQL**
+2. **Файл**
+3. **In-memory**
 
 Примечание:
 
@@ -108,10 +130,10 @@ cmd/                    — точки входа приложения
   client/               — CLI-клиент
 internal/               — внутренние модули приложения
   config/               — конфигурация приложения
-    db/                 — конфигурация подключения к БД (TBD)
+    db/                 — подключение к PostgreSQL (ping + shared *sql.DB)
   handler/              — HTTP-обработчики
   service/              — бизнес-логика
-  repository/           — работа с хранилищем данных и внешними сервисами
+  repository/           — хранилища: memory / file / PostgreSQL
   middleware/           — HTTP-middleware
   logger/               — структурированное логирование
   model/                — доменные структуры
@@ -119,7 +141,7 @@ internal/               — внутренние модули приложени
   parser/               — парсеры
   urlutils/             — утилиты для работы с URL
 api/                    — контракт API, OpenAPI/Swagger (TBD)
-migrations/             — миграции БД (TBD)
+migrations/             — SQL-схема PostgreSQL (применяется при старте)
 pkg/                    — переиспользуемые пакеты (TBD)
 ```
 
@@ -139,9 +161,10 @@ pkg/                    — переиспользуемые пакеты (TBD)
 
 ### Хранение данных
 
-- **In-memory** репозиторий как fallback.
+- **PostgreSQL** репозиторий: основное хранилище при заданном DSN; таблицы создаются при старте.
 - **File-backed** репозиторий: JSON-lines файл, данные переживают перезапуск сервера.
-- Плагинная фабрика `repository.New` — выбор бэкенда по конфигурации.
+- **In-memory** репозиторий как fallback.
+- Плагинная фабрика `repository.New` — выбор бэкенда по приоритету: PostgreSQL → файл → память.
 
 ### Наблюдаемость и производительность
 
@@ -153,7 +176,7 @@ pkg/                    — переиспользуемые пакеты (TBD)
 ### Тестирование и CI
 
 - Unit-тесты для handler, repository, middleware, parser (table-driven, testify/mock).
-- GitHub Actions: автотесты по инкрементам, statictest, PostgreSQL в CI для будущих итераций.
+- GitHub Actions: автотесты по инкрементам, statictest, PostgreSQL в CI.
 
 ### CLI-клиент
 

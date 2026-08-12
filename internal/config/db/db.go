@@ -5,6 +5,10 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/NxthxnX/urlshortener/migrations"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -38,9 +42,51 @@ func (s *Store) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
 
+// DB returns the underlying *sql.DB, or nil if not configured.
+func (s *Store) DB() *sql.DB {
+	if s == nil {
+		return nil
+	}
+
+	return s.db
+}
+
 // Close closes the underlying database connection.
 func (s *Store) Close() {
 	if s != nil && s.db != nil {
 		s.db.Close()
 	}
+}
+
+// Migrate applies SQL migrations from the embedded migrations package.
+func (s *Store) Migrate() error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+
+	dbDriver, err := postgres.WithInstance(s.db, &postgres.Config{})
+	if err != nil {
+		return err
+	}
+
+	sourceDriver, err := iofs.New(migrations.FS, ".")
+	if err != nil {
+		return err
+	}
+
+	m, err := migrate.NewWithInstance(
+		"iofs",
+		sourceDriver,
+		"postgres",
+		dbDriver,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return err
+	}
+
+	return nil
 }

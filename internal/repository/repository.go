@@ -1,5 +1,7 @@
 package repository
 
+import "database/sql"
+
 // Repository defines the contract for URL persistence backends.
 type Repository interface {
 	Save(id, originalURL string)
@@ -9,6 +11,8 @@ type Repository interface {
 // Config selects and configures a storage backend.
 type Config struct {
 	FileStoragePath string
+	DatabaseDSN     string
+	DB              *sql.DB // optional shared connection; used when DatabaseDSN is set
 }
 
 type backend struct {
@@ -16,8 +20,20 @@ type backend struct {
 	create  func(Config) (Repository, error)
 }
 
-// backends lists persistent storage backends in priority order (first match wins).
+// backends lists persistent storage backends in priority order (first match wins):
+// PostgreSQL → file → in-memory fallback.
 var backends = []backend{
+	{
+		enabled: func(cfg Config) bool {
+			return cfg.DatabaseDSN != ""
+		},
+		create: func(cfg Config) (Repository, error) {
+			if cfg.DB != nil {
+				return NewPostgresRepository(cfg.DB)
+			}
+			return NewPostgresRepositoryFromDSN(cfg.DatabaseDSN)
+		},
+	},
 	{
 		enabled: func(cfg Config) bool {
 			return cfg.FileStoragePath != ""
