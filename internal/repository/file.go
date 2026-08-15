@@ -46,7 +46,7 @@ func NewFileRepository(filePath string) (*FileRepository, error) {
 }
 
 // Save stores a mapping between id and originalURL and appends it to the storage file.
-func (r *FileRepository) Save(id, originalURL string) {
+func (r *FileRepository) Save(id, originalURL string) error {
 	record := model.URLRecord{
 		UUID:        strconv.Itoa(r.nextUUID),
 		ShortURL:    id,
@@ -62,7 +62,9 @@ func (r *FileRepository) Save(id, originalURL string) {
 	if err := appendRecord(r.filePath, record); err != nil {
 		delete(r.urls, id)
 		r.nextUUID--
+		return err
 	}
+	return nil
 }
 
 // SaveBatch stores multiple URL mappings and appends them to the storage file.

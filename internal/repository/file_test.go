@@ -42,7 +42,8 @@ func TestFileRepository_SaveAndFind(t *testing.T) {
 	repo, err := NewFileRepository(filePath)
 	require.NoError(t, err)
 
-	repo.Save("abc12345", "http://example.com")
+	err = repo.Save("abc12345", "http://example.com")
+	require.NoError(t, err)
 
 	originalURL, ok := repo.FindByID("abc12345")
 	require.True(t, ok)
@@ -65,8 +66,10 @@ func TestFileRepository_RestoreOnRestart(t *testing.T) {
 	repo, err := NewFileRepository(filePath)
 	require.NoError(t, err)
 
-	repo.Save("short1", "http://yandex.ru")
-	repo.Save("short2", "http://ya.ru")
+	err = repo.Save("short1", "http://yandex.ru")
+	require.NoError(t, err)
+	err = repo.Save("short2", "http://ya.ru")
+	require.NoError(t, err)
 
 	restartedRepo, err := NewFileRepository(filePath)
 	require.NoError(t, err)
@@ -91,7 +94,8 @@ func TestNewFileRepository_CreatesParentDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.DirExists(t, dir)
 
-	repo.Save("abc12345", "http://example.com")
+	err = repo.Save("abc12345", "http://example.com")
+	require.NoError(t, err)
 	require.FileExists(t, filePath)
 }
 
@@ -136,7 +140,8 @@ func TestFileRepository_SaveBatch_RestoreOnRestart(t *testing.T) {
 		{ShortURL: "short2", OriginalURL: "http://ya.ru"},
 	}))
 
-	repo.Save("short3", "http://go.dev")
+	err = repo.Save("short3", "http://go.dev")
+	require.NoError(t, err)
 
 	restartedRepo, err := NewFileRepository(filePath)
 	require.NoError(t, err)

@@ -646,7 +646,8 @@ func TestServeHTTP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.method == http.MethodGet && tt.path == "/"+mockID {
-				repo.Save(mockID, mockOriginalURL)
+				err := repo.Save(mockID, mockOriginalURL)
+				require.NoError(t, err)
 			}
 
 			targetURL := ts.URL + tt.path

@@ -8,7 +8,7 @@ import (
 
 // Repository defines the contract for URL persistence backends.
 type Repository interface {
-	Save(id, originalURL string)
+	Save(id, originalURL string) error
 	SaveBatch(pairs []model.URLPair) error
 	FindByID(id string) (string, bool)
 }

@@ -31,7 +31,9 @@ func (s *ShortenerService) Shorten(originalURL string) (string, error) {
 		return "", err
 	}
 
-	s.repo.Save(id, originalURL)
+	if err := s.repo.Save(id, originalURL); err != nil {
+		return "", err
+	}
 	return id, nil
 }
 

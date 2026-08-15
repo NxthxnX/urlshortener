@@ -33,15 +33,16 @@ func NewPostgresRepositoryFromDSN(dsn string) (*PostgresRepository, error) {
 }
 
 // Save stores a mapping between id and originalURL in PostgreSQL.
-func (r *PostgresRepository) Save(id, originalURL string) {
+func (r *PostgresRepository) Save(id, originalURL string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	r.db.ExecContext(ctx,
+	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO urls (short_url, original_url) VALUES ($1, $2)
 		 ON CONFLICT (short_url) DO UPDATE SET original_url = EXCLUDED.original_url`,
 		id, originalURL,
 	)
+	return err
 }
 
 // SaveBatch stores multiple URL mappings in a single transaction.

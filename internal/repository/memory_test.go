@@ -11,7 +11,8 @@ import (
 func TestMemoryRepository_SaveAndFind(t *testing.T) {
 	repo := NewMemoryRepository()
 
-	repo.Save("abc12345", "http://example.com")
+	err := repo.Save("abc12345", "http://example.com")
+	require.NoError(t, err)
 
 	originalURL, ok := repo.FindByID("abc12345")
 	require.True(t, ok)
@@ -28,8 +29,10 @@ func TestMemoryRepository_FindByID_NotFound(t *testing.T) {
 func TestMemoryRepository_Overwrite(t *testing.T) {
 	repo := NewMemoryRepository()
 
-	repo.Save("id1", "http://example.com")
-	repo.Save("id1", "http://updated.com")
+	err := repo.Save("id1", "http://example.com")
+	require.NoError(t, err)
+	err = repo.Save("id1", "http://updated.com")
+	require.NoError(t, err)
 
 	originalURL, ok := repo.FindByID("id1")
 	require.True(t, ok)
@@ -39,8 +42,10 @@ func TestMemoryRepository_Overwrite(t *testing.T) {
 func TestMemoryRepository_MultipleEntries(t *testing.T) {
 	repo := NewMemoryRepository()
 
-	repo.Save("short1", "http://yandex.ru")
-	repo.Save("short2", "http://ya.ru")
+	err := repo.Save("short1", "http://yandex.ru")
+	require.NoError(t, err)
+	err = repo.Save("short2", "http://ya.ru")
+	require.NoError(t, err)
 
 	originalURL, ok := repo.FindByID("short1")
 	require.True(t, ok)

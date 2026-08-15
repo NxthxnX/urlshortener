@@ -32,7 +32,8 @@ func TestPostgresRepository_SaveAndFind(t *testing.T) {
 		WithArgs("abc12345").
 		WillReturnRows(sqlmock.NewRows([]string{"original_url"}).AddRow("http://example.com"))
 
-	repo.Save("abc12345", "http://example.com")
+	err := repo.Save("abc12345", "http://example.com")
+	require.NoError(t, err)
 	originalURL, ok := repo.FindByID("abc12345")
 	require.True(t, ok)
 	assert.Equal(t, "http://example.com", originalURL)
@@ -66,8 +67,10 @@ func TestPostgresRepository_Overwrite(t *testing.T) {
 		WithArgs("id1").
 		WillReturnRows(sqlmock.NewRows([]string{"original_url"}).AddRow("http://updated.com"))
 
-	repo.Save("id1", "http://example.com")
-	repo.Save("id1", "http://updated.com")
+	err := repo.Save("id1", "http://example.com")
+	require.NoError(t, err)
+	err = repo.Save("id1", "http://updated.com")
+	require.NoError(t, err)
 	originalURL, ok := repo.FindByID("id1")
 	require.True(t, ok)
 	assert.Equal(t, "http://updated.com", originalURL)

@@ -22,10 +22,11 @@ func NewMemoryRepository() *MemoryRepository {
 }
 
 // Save stores a mapping between id and originalURL.
-func (r *MemoryRepository) Save(id, originalURL string) {
+func (r *MemoryRepository) Save(id, originalURL string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.urls[id] = originalURL
+	return nil
 }
 
 // SaveBatch stores multiple URL mappings in memory.
