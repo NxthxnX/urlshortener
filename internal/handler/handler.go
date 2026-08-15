@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime"
@@ -24,6 +25,7 @@ var (
 // Shortener defines the interface for URL shortening operations.
 type Shortener interface {
 	Shorten(originalURL string) (string, error)
+	ShortenBatch(originalURLs []string) ([]string, error)
 	Expand(id string) (string, bool)
 }
 
@@ -68,6 +70,7 @@ func PingHandler(db Pinger) http.HandlerFunc {
 func (h *Handler) RegisterRoutes(r *chi.Mux) {
 	r.Post("/", h.shortenHandler)
 	r.Post("/api/shorten", h.apiShortenHandler)
+	r.Post("/api/shorten/batch", h.apiShortenBatchHandler)
 	r.Get("/{id}", h.expandHandler)
 }
 
@@ -75,7 +78,8 @@ func (h *Handler) buildShortURL(id string) string {
 	return h.baseURL + "/" + id
 }
 
-func (h *Handler) shortenURL(rawURL string) (string, error) {
+// normalizeURL trims whitespace, validates and normalizes a raw URL.
+func normalizeURL(rawURL string) (string, error) {
 	originalURL := strings.TrimSpace(rawURL)
 	if originalURL == "" {
 		return "", errEmptyURL
@@ -84,6 +88,15 @@ func (h *Handler) shortenURL(rawURL string) (string, error) {
 	normalized, err := urlutils.Normalize(originalURL)
 	if err != nil {
 		return "", errInvalidURL
+	}
+
+	return normalized, nil
+}
+
+func (h *Handler) shortenURL(rawURL string) (string, error) {
+	normalized, err := normalizeURL(rawURL)
+	if err != nil {
+		return "", err
 	}
 
 	id, err := h.shortener.Shorten(normalized)
@@ -157,6 +170,78 @@ func (h *Handler) apiShortenHandler(w http.ResponseWriter, r *http.Request) {
 
 	resp := myjson.APIShortenResponse{Result: shortURL}
 	jsonBody, err := easyjson.Marshal(resp)
+	if err != nil {
+		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write(jsonBody)
+}
+
+// apiShortenBatchHandler handles POST /api/shorten/batch
+// JSON requests to shorten a batch of URLs.
+func (h *Handler) apiShortenBatchHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		http.Error(w, "Invalid Content-Type", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Cannot read body", http.StatusBadRequest)
+		return
+	}
+
+	var req []myjson.APIShortenBatchRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(req) == 0 {
+		http.Error(w, "Empty batch", http.StatusBadRequest)
+		return
+	}
+
+	seen := make(map[string]struct{})
+	for _, item := range req {
+		if _, exists := seen[item.CorrelationID]; exists {
+			http.Error(w, "Duplicate correlation_id", http.StatusBadRequest)
+			return
+		}
+		seen[item.CorrelationID] = struct{}{}
+	}
+
+	normalizedURLs := make([]string, 0, len(req))
+	for _, item := range req {
+		normalized, err := normalizeURL(item.OriginalURL)
+		if err != nil {
+			writeShortenError(w, err)
+			return
+		}
+		normalizedURLs = append(normalizedURLs, normalized)
+	}
+
+	ids, err := h.shortener.ShortenBatch(normalizedURLs)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]myjson.APIShortenBatchResponse, 0, len(req))
+	for i, item := range req {
+		resp = append(resp, myjson.APIShortenBatchResponse{
+			CorrelationID: item.CorrelationID,
+			ShortURL:      h.buildShortURL(ids[i]),
+		})
+	}
+
+	jsonBody, err := json.Marshal(resp)
 	if err != nil {
 		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
 		return

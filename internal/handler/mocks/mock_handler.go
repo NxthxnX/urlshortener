@@ -70,6 +70,21 @@ func (mr *MockShortenerMockRecorder) Shorten(originalURL any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shorten", reflect.TypeOf((*MockShortener)(nil).Shorten), originalURL)
 }
 
+// ShortenBatch mocks base method.
+func (m *MockShortener) ShortenBatch(originalURLs []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShortenBatch", originalURLs)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ShortenBatch indicates an expected call of ShortenBatch.
+func (mr *MockShortenerMockRecorder) ShortenBatch(originalURLs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShortenBatch", reflect.TypeOf((*MockShortener)(nil).ShortenBatch), originalURLs)
+}
+
 // MockPinger is a mock of Pinger interface.
 type MockPinger struct {
 	ctrl     *gomock.Controller

@@ -65,6 +65,34 @@ func (r *FileRepository) Save(id, originalURL string) {
 	}
 }
 
+// SaveBatch stores multiple URL mappings and appends them to the storage file.
+func (r *FileRepository) SaveBatch(pairs []model.URLPair) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	records := make([]model.URLRecord, 0, len(pairs))
+	for _, p := range pairs {
+		record := model.URLRecord{
+			UUID:        strconv.Itoa(r.nextUUID),
+			ShortURL:    p.ShortURL,
+			OriginalURL: p.OriginalURL,
+		}
+		records = append(records, record)
+		r.urls[p.ShortURL] = p.OriginalURL
+		r.nextUUID++
+	}
+
+	if err := appendRecords(r.filePath, records); err != nil {
+		for _, rec := range records {
+			delete(r.urls, rec.ShortURL)
+			r.nextUUID--
+		}
+		return err
+	}
+
+	return nil
+}
+
 // FindByID retrieves the original URL by its shortened ID.
 // Returns the original URL and a boolean indicating if found.
 func (r *FileRepository) FindByID(id string) (string, bool) {
@@ -116,11 +144,15 @@ func loadFromFile(filePath string) (map[string]string, int, error) {
 }
 
 func appendRecord(filePath string, record model.URLRecord) error {
-	data, err := json.Marshal(record)
-	if err != nil {
-		return err
+	return appendRecords(filePath, []model.URLRecord{record})
+}
+
+// appendRecords writes the given records as JSON-lines to the storage file
+// in a single batch (single file open).
+func appendRecords(filePath string, records []model.URLRecord) error {
+	if len(records) == 0 {
+		return nil
 	}
-	data = append(data, '\n')
 
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -128,6 +160,18 @@ func appendRecord(filePath string, record model.URLRecord) error {
 	}
 	defer file.Close()
 
-	_, err = file.Write(data)
-	return err
+	writer := bufio.NewWriter(file)
+	for _, record := range records {
+		data, err := json.Marshal(record)
+		if err != nil {
+			return err
+		}
+		data = append(data, '\n')
+
+		if _, err := writer.Write(data); err != nil {
+			return err
+		}
+	}
+
+	return writer.Flush()
 }

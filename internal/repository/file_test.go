@@ -94,3 +94,67 @@ func TestNewFileRepository_CreatesParentDirectory(t *testing.T) {
 	repo.Save("abc12345", "http://example.com")
 	require.FileExists(t, filePath)
 }
+
+func TestFileRepository_SaveBatch(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "urls.json")
+
+	repo, err := NewFileRepository(filePath)
+	require.NoError(t, err)
+
+	err = repo.SaveBatch([]model.URLPair{
+		{ShortURL: "short1", OriginalURL: "http://yandex.ru"},
+		{ShortURL: "short2", OriginalURL: "http://ya.ru"},
+	})
+	require.NoError(t, err)
+
+	records := readRecordsFromFile(t, filePath)
+	require.Len(t, records, 2)
+	assert.Equal(t, "1", records[0].UUID)
+	assert.Equal(t, "short1", records[0].ShortURL)
+	assert.Equal(t, "http://yandex.ru", records[0].OriginalURL)
+	assert.Equal(t, "2", records[1].UUID)
+	assert.Equal(t, "short2", records[1].ShortURL)
+	assert.Equal(t, "http://ya.ru", records[1].OriginalURL)
+
+	originalURL, ok := repo.FindByID("short1")
+	require.True(t, ok)
+	assert.Equal(t, "http://yandex.ru", originalURL)
+
+	originalURL, ok = repo.FindByID("short2")
+	require.True(t, ok)
+	assert.Equal(t, "http://ya.ru", originalURL)
+}
+
+func TestFileRepository_SaveBatch_RestoreOnRestart(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "urls.json")
+
+	repo, err := NewFileRepository(filePath)
+	require.NoError(t, err)
+
+	require.NoError(t, repo.SaveBatch([]model.URLPair{
+		{ShortURL: "short1", OriginalURL: "http://yandex.ru"},
+		{ShortURL: "short2", OriginalURL: "http://ya.ru"},
+	}))
+
+	repo.Save("short3", "http://go.dev")
+
+	restartedRepo, err := NewFileRepository(filePath)
+	require.NoError(t, err)
+
+	originalURL, ok := restartedRepo.FindByID("short1")
+	require.True(t, ok)
+	assert.Equal(t, "http://yandex.ru", originalURL)
+
+	originalURL, ok = restartedRepo.FindByID("short2")
+	require.True(t, ok)
+	assert.Equal(t, "http://ya.ru", originalURL)
+
+	originalURL, ok = restartedRepo.FindByID("short3")
+	require.True(t, ok)
+	assert.Equal(t, "http://go.dev", originalURL)
+
+	records := readRecordsFromFile(t, filePath)
+	require.Len(t, records, 3)
+	assert.Equal(t, "3", records[2].UUID)
+	assert.Equal(t, "short3", records[2].ShortURL)
+}

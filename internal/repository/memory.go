@@ -2,6 +2,8 @@ package repository
 
 import (
 	"sync"
+
+	"github.com/NxthxnX/urlshortener/internal/model"
 )
 
 var _ Repository = (*MemoryRepository)(nil)
@@ -24,6 +26,16 @@ func (r *MemoryRepository) Save(id, originalURL string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.urls[id] = originalURL
+}
+
+// SaveBatch stores multiple URL mappings in memory.
+func (r *MemoryRepository) SaveBatch(pairs []model.URLPair) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, p := range pairs {
+		r.urls[p.ShortURL] = p.OriginalURL
+	}
+	return nil
 }
 
 // FindByID retrieves the original URL by its shortened ID.

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/NxthxnX/urlshortener/internal/model"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -41,6 +42,36 @@ func (r *PostgresRepository) Save(id, originalURL string) {
 		 ON CONFLICT (short_url) DO UPDATE SET original_url = EXCLUDED.original_url`,
 		id, originalURL,
 	)
+}
+
+// SaveBatch stores multiple URL mappings in a single transaction.
+func (r *PostgresRepository) SaveBatch(pairs []model.URLPair) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.PrepareContext(ctx,
+		`INSERT INTO urls (short_url, original_url) VALUES ($1, $2)
+		 ON CONFLICT (short_url) DO UPDATE SET original_url = EXCLUDED.original_url`,
+	)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	defer stmt.Close()
+
+	for _, p := range pairs {
+		if _, err := stmt.ExecContext(ctx, p.ShortURL, p.OriginalURL); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 // FindByID retrieves the original URL by its shortened ID.

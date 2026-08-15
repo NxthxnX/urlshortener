@@ -1,10 +1,15 @@
 package repository
 
-import "database/sql"
+import (
+	"database/sql"
+
+	"github.com/NxthxnX/urlshortener/internal/model"
+)
 
 // Repository defines the contract for URL persistence backends.
 type Repository interface {
 	Save(id, originalURL string)
+	SaveBatch(pairs []model.URLPair) error
 	FindByID(id string) (string, bool)
 }
 

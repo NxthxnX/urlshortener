@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"math/big"
 
+	"github.com/NxthxnX/urlshortener/internal/model"
 	"github.com/NxthxnX/urlshortener/internal/repository"
 )
 
@@ -32,6 +33,28 @@ func (s *ShortenerService) Shorten(originalURL string) (string, error) {
 
 	s.repo.Save(id, originalURL)
 	return id, nil
+}
+
+// ShortenBatch generates short IDs for the given URLs and saves them
+// in a single batch operation. Returns the generated IDs in the same order.
+func (s *ShortenerService) ShortenBatch(originalURLs []string) ([]string, error) {
+	ids := make([]string, 0, len(originalURLs))
+	pairs := make([]model.URLPair, 0, len(originalURLs))
+
+	for _, originalURL := range originalURLs {
+		id, err := generateID()
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+		pairs = append(pairs, model.URLPair{ShortURL: id, OriginalURL: originalURL})
+	}
+
+	if err := s.repo.SaveBatch(pairs); err != nil {
+		return nil, err
+	}
+
+	return ids, nil
 }
 
 // Expand retrieves the original URL for the given short ID.

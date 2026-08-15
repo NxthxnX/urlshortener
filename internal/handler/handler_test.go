@@ -258,6 +258,114 @@ func TestAPIShortenHandler(t *testing.T) {
 	}
 }
 
+func TestAPIShortenBatchHandler(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        string
+		contentType string
+		setup       func(m *mocks.MockShortener)
+		wantCode    int
+		wantBody    string
+	}{
+		{
+			name:        "Success",
+			body:        `[{"correlation_id":"1","original_url":"https://example.com"},{"correlation_id":"2","original_url":"yandex.ru"}]`,
+			contentType: "application/json",
+			setup: func(m *mocks.MockShortener) {
+				m.EXPECT().
+					ShortenBatch([]string{"https://example.com", "http://yandex.ru"}).
+					Return([]string{"abcd1234", "efgh5678"}, nil)
+			},
+			wantCode: http.StatusCreated,
+			wantBody: `[{"correlation_id":"1","short_url":"http://localhost:8080/abcd1234"},{"correlation_id":"2","short_url":"http://localhost:8080/efgh5678"}]`,
+		},
+		{
+			name:        "Invalid Content-Type",
+			body:        `[{"correlation_id":"1","original_url":"https://example.com"}]`,
+			contentType: "text/plain",
+			wantCode:    http.StatusUnsupportedMediaType,
+			wantBody:    "Invalid Content-Type\n",
+		},
+		{
+			name:        "Invalid JSON body",
+			body:        "{invalid json",
+			contentType: "application/json",
+			wantCode:    http.StatusBadRequest,
+			wantBody:    "Invalid request body\n",
+		},
+		{
+			name:        "Empty batch",
+			body:        `[]`,
+			contentType: "application/json",
+			wantCode:    http.StatusBadRequest,
+			wantBody:    "Empty batch\n",
+		},
+		{
+			name:        "Duplicate correlation_id",
+			body:        `[{"correlation_id":"1","original_url":"https://example.com"},{"correlation_id":"1","original_url":"https://other.com"}]`,
+			contentType: "application/json",
+			wantCode:    http.StatusBadRequest,
+			wantBody:    "Duplicate correlation_id\n",
+		},
+		{
+			name:        "Empty URL",
+			body:        `[{"correlation_id":"1","original_url":""}]`,
+			contentType: "application/json",
+			wantCode:    http.StatusBadRequest,
+			wantBody:    "Empty URL\n",
+		},
+		{
+			name:        "Invalid URL format",
+			body:        `[{"correlation_id":"1","original_url":"ex ample.com"}]`,
+			contentType: "application/json",
+			wantCode:    http.StatusBadRequest,
+			wantBody:    "Invalid URL format\n",
+		},
+		{
+			name:        "Shortener failure",
+			body:        `[{"correlation_id":"1","original_url":"https://example.com"}]`,
+			contentType: "application/json",
+			setup: func(m *mocks.MockShortener) {
+				m.EXPECT().
+					ShortenBatch([]string{"https://example.com"}).
+					Return(nil, io.ErrShortBuffer)
+			},
+			wantCode: http.StatusInternalServerError,
+			wantBody: "short buffer\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			m := mocks.NewMockShortener(ctrl)
+			if tt.setup != nil {
+				tt.setup(m)
+			}
+
+			h := NewHandler(m, mockResAddr)
+
+			r := chi.NewRouter()
+			r.Post("/api/shorten/batch", h.apiShortenBatchHandler)
+
+			req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", tt.contentType)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			res := w.Result()
+			defer res.Body.Close()
+
+			resBody, err := io.ReadAll(res.Body)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantCode, res.StatusCode)
+			assert.Equal(t, tt.wantBody, string(resBody))
+		})
+	}
+}
+
 func TestExpandHandler(t *testing.T) {
 	type want struct {
 		code        int
@@ -497,6 +605,32 @@ func TestServeHTTP(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "POST /api/shorten/batch",
+			method: http.MethodPost,
+			path:   "/api/shorten/batch",
+			body:   `[{"correlation_id":"1","original_url":"https://example.com"}]`,
+			want: want{
+				code: http.StatusCreated,
+				body: `\[{"correlation_id":"1","short_url":"http://localhost:8080/[a-zA-Z0-9]+"}\]`,
+				header: map[string]string{
+					"Content-Type": "application/json",
+				},
+			},
+		},
+		{
+			name:   "POST /api/shorten/batch empty batch",
+			method: http.MethodPost,
+			path:   "/api/shorten/batch",
+			body:   `[]`,
+			want: want{
+				code: http.StatusBadRequest,
+				body: "Empty batch\n",
+				header: map[string]string{
+					"Content-Type": "text/plain; charset=utf-8",
+				},
+			},
+		},
 	}
 
 	repo := repository.NewMemoryRepository()
@@ -520,7 +654,7 @@ func TestServeHTTP(t *testing.T) {
 			req, err := http.NewRequest(tt.method, targetURL, strings.NewReader(tt.body))
 			require.NoError(t, err)
 
-			if tt.path == "/api/shorten" && tt.method == http.MethodPost && tt.name != "POST /api/shorten wrong Content-Type" {
+			if (tt.path == "/api/shorten" || tt.path == "/api/shorten/batch") && tt.method == http.MethodPost && tt.name != "POST /api/shorten wrong Content-Type" {
 				req.Header.Set("Content-Type", "application/json")
 			}
 

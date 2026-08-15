@@ -147,3 +147,155 @@ func (v *APIShortenRequest) UnmarshalJSON(data []byte) error {
 func (v *APIShortenRequest) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjson1a3d1914DecodeGithubComNxthxnXUrlshortenerInternalMyjson1(l, v)
 }
+func easyjson1a3d1914DecodeGithubComNxthxnXUrlshortenerInternalMyjson2(in *jlexer.Lexer, out *APIShortenBatchResponse) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		switch key {
+		case "correlation_id":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.CorrelationID = string(in.String())
+			}
+		case "short_url":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ShortURL = string(in.String())
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson1a3d1914EncodeGithubComNxthxnXUrlshortenerInternalMyjson2(out *jwriter.Writer, in APIShortenBatchResponse) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"correlation_id\":"
+		out.RawString(prefix[1:])
+		out.String(string(in.CorrelationID))
+	}
+	{
+		const prefix string = ",\"short_url\":"
+		out.RawString(prefix)
+		out.String(string(in.ShortURL))
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v APIShortenBatchResponse) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson1a3d1914EncodeGithubComNxthxnXUrlshortenerInternalMyjson2(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v APIShortenBatchResponse) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson1a3d1914EncodeGithubComNxthxnXUrlshortenerInternalMyjson2(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *APIShortenBatchResponse) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson1a3d1914DecodeGithubComNxthxnXUrlshortenerInternalMyjson2(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *APIShortenBatchResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson1a3d1914DecodeGithubComNxthxnXUrlshortenerInternalMyjson2(l, v)
+}
+func easyjson1a3d1914DecodeGithubComNxthxnXUrlshortenerInternalMyjson3(in *jlexer.Lexer, out *APIShortenBatchRequest) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		switch key {
+		case "correlation_id":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.CorrelationID = string(in.String())
+			}
+		case "original_url":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.OriginalURL = string(in.String())
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson1a3d1914EncodeGithubComNxthxnXUrlshortenerInternalMyjson3(out *jwriter.Writer, in APIShortenBatchRequest) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"correlation_id\":"
+		out.RawString(prefix[1:])
+		out.String(string(in.CorrelationID))
+	}
+	{
+		const prefix string = ",\"original_url\":"
+		out.RawString(prefix)
+		out.String(string(in.OriginalURL))
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v APIShortenBatchRequest) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson1a3d1914EncodeGithubComNxthxnXUrlshortenerInternalMyjson3(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v APIShortenBatchRequest) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson1a3d1914EncodeGithubComNxthxnXUrlshortenerInternalMyjson3(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *APIShortenBatchRequest) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson1a3d1914DecodeGithubComNxthxnXUrlshortenerInternalMyjson3(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *APIShortenBatchRequest) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson1a3d1914DecodeGithubComNxthxnXUrlshortenerInternalMyjson3(l, v)
+}

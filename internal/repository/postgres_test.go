@@ -1,9 +1,11 @@
 package repository
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/NxthxnX/urlshortener/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -69,5 +71,70 @@ func TestPostgresRepository_Overwrite(t *testing.T) {
 	originalURL, ok := repo.FindByID("id1")
 	require.True(t, ok)
 	assert.Equal(t, "http://updated.com", originalURL)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPostgresRepository_SaveBatch(t *testing.T) {
+	repo, mock := newPostgresRepoWithMock(t)
+
+	mock.ExpectBegin()
+	prep := mock.ExpectPrepare(`INSERT INTO urls`)
+	prep.ExpectExec().
+		WithArgs("short1", "http://yandex.ru").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	prep.ExpectExec().
+		WithArgs("short2", "http://ya.ru").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err := repo.SaveBatch([]model.URLPair{
+		{ShortURL: "short1", OriginalURL: "http://yandex.ru"},
+		{ShortURL: "short2", OriginalURL: "http://ya.ru"},
+	})
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPostgresRepository_SaveBatch_Empty(t *testing.T) {
+	repo, mock := newPostgresRepoWithMock(t)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`INSERT INTO urls`)
+	mock.ExpectCommit()
+
+	err := repo.SaveBatch(nil)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPostgresRepository_SaveBatch_ExecError(t *testing.T) {
+	repo, mock := newPostgresRepoWithMock(t)
+
+	mock.ExpectBegin()
+	prep := mock.ExpectPrepare(`INSERT INTO urls`)
+	prep.ExpectExec().
+		WithArgs("short1", "http://yandex.ru").
+		WillReturnError(errors.New("insert failed"))
+	mock.ExpectRollback()
+
+	err := repo.SaveBatch([]model.URLPair{
+		{ShortURL: "short1", OriginalURL: "http://yandex.ru"},
+	})
+	require.Error(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPostgresRepository_SaveBatch_PrepareError(t *testing.T) {
+	repo, mock := newPostgresRepoWithMock(t)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`INSERT INTO urls`).
+		WillReturnError(errors.New("prepare failed"))
+	mock.ExpectRollback()
+
+	err := repo.SaveBatch([]model.URLPair{
+		{ShortURL: "short1", OriginalURL: "http://yandex.ru"},
+	})
+	require.Error(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

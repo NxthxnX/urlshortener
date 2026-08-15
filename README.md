@@ -94,6 +94,7 @@ In-memory хранилище используется только при отс
 |-------|------|----------|
 | `POST` | `/` | Сократить URL. Тело — `text/plain`, ответ — короткая ссылка (`201 Created`) |
 | `POST` | `/api/shorten` | Сократить URL. Тело — `{"url":"..."}`, ответ — `{"result":"..."}` (`201 Created`) |
+| `POST` | `/api/shorten/batch` | Сократить пакет URL. Тело — массив `{"correlation_id":"...","original_url":"..."}`, ответ — массив `{"correlation_id":"...","short_url":"..."}` (`201 Created`) |
 | `GET` | `/{id}` | Редирект на исходный URL (`307 Temporary Redirect`) |
 | `GET` | `/ping` | Health check: проверяет соединение с PostgreSQL (`200 OK`) |
 
@@ -114,6 +115,14 @@ curl -X POST http://localhost:8080/api/shorten \
   -H "Content-Type: application/json" \
   -d '{"url":"http://example.com"}' \
   --compressed -i
+
+# пакетное сокращение
+curl -X POST http://localhost:8080/api/shorten/batch \
+  -H "Content-Type: application/json" \
+  -d '[
+    {"correlation_id":"1","original_url":"https://example.com"},
+    {"correlation_id":"2","original_url":"https://golang.org"}
+  ]'
 
 # редирект
 curl -L http://localhost:8080/{id}
@@ -157,6 +166,7 @@ pkg/                    — переиспользуемые пакеты (TBD)
 
 - Генерация короткого ID (8 символов, `crypto/rand`) с редиректом на исходный URL.
 - Два формата API: plain text (`POST /`) и JSON (`POST /api/shorten`).
+- Пакетное сокращение (`POST /api/shorten/batch`) с корреляцией запросов через `correlation_id`.
 - Нормализация URL: валидация, автодобавление `http://` при отсутствии схемы.
 
 ### Хранение данных
