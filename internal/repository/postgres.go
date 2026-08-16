@@ -3,9 +3,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/NxthxnX/urlshortener/internal/model"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -33,46 +37,90 @@ func NewPostgresRepositoryFromDSN(dsn string) (*PostgresRepository, error) {
 }
 
 // Save stores a mapping between id and originalURL in PostgreSQL.
-func (r *PostgresRepository) Save(id, originalURL string) error {
+// If originalURL already exists, returns the existing short URL and
+// an error wrapping ErrOriginalURLConflict. If short_url collides,
+// returns an error wrapping ErrShortURLConflict.
+func (r *PostgresRepository) Save(id, originalURL string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := r.db.ExecContext(ctx,
+	var shortURL string
+	err := r.db.QueryRowContext(ctx,
 		`INSERT INTO urls (short_url, original_url) VALUES ($1, $2)
-		 ON CONFLICT (short_url) DO UPDATE SET original_url = EXCLUDED.original_url`,
+		 ON CONFLICT (original_url) DO UPDATE SET original_url = EXCLUDED.original_url
+		 RETURNING short_url`,
 		id, originalURL,
-	)
-	return err
+	).Scan(&shortURL)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			return "", fmt.Errorf("%w: %v", ErrShortURLConflict, err)
+		}
+		return "", err
+	}
+
+	if shortURL != id {
+		return shortURL, fmt.Errorf("%w: original URL already exists", ErrOriginalURLConflict)
+	}
+
+	return shortURL, nil
 }
 
 // SaveBatch stores multiple URL mappings in a single transaction.
-func (r *PostgresRepository) SaveBatch(pairs []model.URLPair) error {
+// If any original URL already exists, the existing short URL is used
+// and the returned error wraps ErrOriginalURLConflict. If any short URL
+// collides, the transaction is rolled back and the returned error wraps
+// ErrShortURLConflict.
+func (r *PostgresRepository) SaveBatch(pairs []model.URLPair) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	stmt, err := tx.PrepareContext(ctx,
 		`INSERT INTO urls (short_url, original_url) VALUES ($1, $2)
-		 ON CONFLICT (short_url) DO UPDATE SET original_url = EXCLUDED.original_url`,
+		 ON CONFLICT (original_url) DO UPDATE SET original_url = EXCLUDED.original_url
+		 RETURNING short_url`,
 	)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return nil, err
 	}
 	defer stmt.Close()
 
+	ids := make([]string, 0, len(pairs))
+	hasConflict := false
+
 	for _, p := range pairs {
-		if _, err := stmt.ExecContext(ctx, p.ShortURL, p.OriginalURL); err != nil {
+		var shortURL string
+		err := stmt.QueryRowContext(ctx, p.ShortURL, p.OriginalURL).Scan(&shortURL)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+				tx.Rollback()
+				return nil, fmt.Errorf("%w: %v", ErrShortURLConflict, err)
+			}
 			tx.Rollback()
-			return err
+			return nil, err
 		}
+		if shortURL != p.ShortURL {
+			hasConflict = true
+		}
+		ids = append(ids, shortURL)
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	if hasConflict {
+		return ids, fmt.Errorf("%w: some original URLs already exist", ErrOriginalURLConflict)
+	}
+
+	return ids, nil
 }
 
 // FindByID retrieves the original URL by its shortened ID.
@@ -90,4 +138,13 @@ func (r *PostgresRepository) FindByID(id string) (string, bool) {
 		return "", false
 	}
 	return originalURL, true
+}
+
+// Clear removes all rows from the urls table.
+func (r *PostgresRepository) Clear() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, `DELETE FROM urls`)
+	return err
 }

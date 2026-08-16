@@ -3,6 +3,7 @@ package repository
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,8 +43,9 @@ func TestFileRepository_SaveAndFind(t *testing.T) {
 	repo, err := NewFileRepository(filePath)
 	require.NoError(t, err)
 
-	err = repo.Save("abc12345", "http://example.com")
+	shortURL, err := repo.Save("abc12345", "http://example.com")
 	require.NoError(t, err)
+	assert.Equal(t, "abc12345", shortURL)
 
 	originalURL, ok := repo.FindByID("abc12345")
 	require.True(t, ok)
@@ -66,9 +68,9 @@ func TestFileRepository_RestoreOnRestart(t *testing.T) {
 	repo, err := NewFileRepository(filePath)
 	require.NoError(t, err)
 
-	err = repo.Save("short1", "http://yandex.ru")
+	_, err = repo.Save("short1", "http://yandex.ru")
 	require.NoError(t, err)
-	err = repo.Save("short2", "http://ya.ru")
+	_, err = repo.Save("short2", "http://ya.ru")
 	require.NoError(t, err)
 
 	restartedRepo, err := NewFileRepository(filePath)
@@ -94,7 +96,7 @@ func TestNewFileRepository_CreatesParentDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.DirExists(t, dir)
 
-	err = repo.Save("abc12345", "http://example.com")
+	_, err = repo.Save("abc12345", "http://example.com")
 	require.NoError(t, err)
 	require.FileExists(t, filePath)
 }
@@ -105,11 +107,12 @@ func TestFileRepository_SaveBatch(t *testing.T) {
 	repo, err := NewFileRepository(filePath)
 	require.NoError(t, err)
 
-	err = repo.SaveBatch([]model.URLPair{
+	ids, err := repo.SaveBatch([]model.URLPair{
 		{ShortURL: "short1", OriginalURL: "http://yandex.ru"},
 		{ShortURL: "short2", OriginalURL: "http://ya.ru"},
 	})
 	require.NoError(t, err)
+	assert.Equal(t, []string{"short1", "short2"}, ids)
 
 	records := readRecordsFromFile(t, filePath)
 	require.Len(t, records, 2)
@@ -135,12 +138,13 @@ func TestFileRepository_SaveBatch_RestoreOnRestart(t *testing.T) {
 	repo, err := NewFileRepository(filePath)
 	require.NoError(t, err)
 
-	require.NoError(t, repo.SaveBatch([]model.URLPair{
+	_, err = repo.SaveBatch([]model.URLPair{
 		{ShortURL: "short1", OriginalURL: "http://yandex.ru"},
 		{ShortURL: "short2", OriginalURL: "http://ya.ru"},
-	}))
+	})
+	require.NoError(t, err)
 
-	err = repo.Save("short3", "http://go.dev")
+	_, err = repo.Save("short3", "http://go.dev")
 	require.NoError(t, err)
 
 	restartedRepo, err := NewFileRepository(filePath)
@@ -162,4 +166,82 @@ func TestFileRepository_SaveBatch_RestoreOnRestart(t *testing.T) {
 	require.Len(t, records, 3)
 	assert.Equal(t, "3", records[2].UUID)
 	assert.Equal(t, "short3", records[2].ShortURL)
+}
+
+func TestFileRepository_Save_OriginalURLConflict(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "urls.json")
+
+	repo, err := NewFileRepository(filePath)
+	require.NoError(t, err)
+
+	shortURL, err := repo.Save("id1", "http://example.com")
+	require.NoError(t, err)
+	assert.Equal(t, "id1", shortURL)
+
+	existingShortURL, err := repo.Save("id2", "http://example.com")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrOriginalURLConflict))
+	assert.Equal(t, "id1", existingShortURL)
+}
+
+func TestFileRepository_SaveBatch_OriginalURLConflict(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "urls.json")
+
+	repo, err := NewFileRepository(filePath)
+	require.NoError(t, err)
+
+	_, err = repo.Save("existing", "http://yandex.ru")
+	require.NoError(t, err)
+
+	ids, err := repo.SaveBatch([]model.URLPair{
+		{ShortURL: "new1", OriginalURL: "http://new.com"},
+		{ShortURL: "new2", OriginalURL: "http://yandex.ru"},
+	})
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrOriginalURLConflict))
+	assert.Equal(t, []string{"new1", "existing"}, ids)
+}
+
+func TestFileRepository_Clear(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "urls.json")
+
+	repo, err := NewFileRepository(filePath)
+	require.NoError(t, err)
+
+	_, err = repo.Save("short1", "http://yandex.ru")
+	require.NoError(t, err)
+	_, err = repo.Save("short2", "http://ya.ru")
+	require.NoError(t, err)
+
+	require.Len(t, readRecordsFromFile(t, filePath), 2)
+
+	require.NoError(t, repo.Clear())
+
+	_, ok := repo.FindByID("short1")
+	assert.False(t, ok)
+	_, ok = repo.FindByID("short2")
+	assert.False(t, ok)
+
+	info, err := os.Stat(filePath)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), info.Size())
+
+	shortURL, err := repo.Save("short1", "http://yandex.ru")
+	require.NoError(t, err)
+	assert.Equal(t, "short1", shortURL)
+
+	records := readRecordsFromFile(t, filePath)
+	require.Len(t, records, 1)
+	assert.Equal(t, "1", records[0].UUID)
+	assert.Equal(t, "short1", records[0].ShortURL)
+	assert.Equal(t, "http://yandex.ru", records[0].OriginalURL)
+}
+
+func TestFileRepository_Clear_NonExistentFile(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "urls.json")
+
+	repo, err := NewFileRepository(filePath)
+	require.NoError(t, err)
+
+	require.NoError(t, repo.Clear())
 }

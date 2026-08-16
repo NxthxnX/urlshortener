@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/NxthxnX/urlshortener/internal/myjson"
+	"github.com/NxthxnX/urlshortener/internal/repository"
 	"github.com/NxthxnX/urlshortener/internal/urlutils"
 	"github.com/go-chi/chi/v5"
 	"github.com/mailru/easyjson"
@@ -101,6 +102,9 @@ func (h *Handler) shortenURL(rawURL string) (string, error) {
 
 	id, err := h.shortener.Shorten(normalized)
 	if err != nil {
+		if errors.Is(err, repository.ErrOriginalURLConflict) {
+			return h.buildShortURL(id), err
+		}
 		return "", err
 	}
 
@@ -113,6 +117,8 @@ func writeShortenError(w http.ResponseWriter, err error) {
 		http.Error(w, "Empty URL", http.StatusBadRequest)
 	case errors.Is(err, errInvalidURL):
 		http.Error(w, "Invalid URL format", http.StatusBadRequest)
+	case errors.Is(err, repository.ErrShortURLConflict):
+		http.Error(w, "Short URL conflict", http.StatusInternalServerError)
 	default:
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -130,6 +136,12 @@ func (h *Handler) shortenHandler(w http.ResponseWriter, r *http.Request) {
 
 	shortURL, err := h.shortenURL(string(body))
 	if err != nil {
+		if errors.Is(err, repository.ErrOriginalURLConflict) {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(shortURL))
+			return
+		}
 		writeShortenError(w, err)
 		return
 	}
@@ -164,6 +176,18 @@ func (h *Handler) apiShortenHandler(w http.ResponseWriter, r *http.Request) {
 
 	shortURL, err := h.shortenURL(req.URL)
 	if err != nil {
+		if errors.Is(err, repository.ErrOriginalURLConflict) {
+			resp := myjson.APIShortenResponse{Result: shortURL}
+			jsonBody, err := easyjson.Marshal(resp)
+			if err != nil {
+				http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			w.Write(jsonBody)
+			return
+		}
 		writeShortenError(w, err)
 		return
 	}
@@ -229,7 +253,26 @@ func (h *Handler) apiShortenBatchHandler(w http.ResponseWriter, r *http.Request)
 
 	ids, err := h.shortener.ShortenBatch(normalizedURLs)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if errors.Is(err, repository.ErrOriginalURLConflict) {
+			resp := make([]myjson.APIShortenBatchResponse, 0, len(req))
+			for i, item := range req {
+				resp = append(resp, myjson.APIShortenBatchResponse{
+					CorrelationID: item.CorrelationID,
+					ShortURL:      h.buildShortURL(ids[i]),
+				})
+			}
+
+			jsonBody, err := json.Marshal(resp)
+			if err != nil {
+				http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			w.Write(jsonBody)
+			return
+		}
+		writeShortenError(w, err)
 		return
 	}
 

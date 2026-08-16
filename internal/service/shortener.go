@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/rand"
+	"errors"
 	"math/big"
 
 	"github.com/NxthxnX/urlshortener/internal/model"
@@ -25,22 +26,29 @@ func NewShortenerService(repo repository.Repository) *ShortenerService {
 
 // Shorten generates a short ID for the given URL and stores it.
 // Returns the generated ID and an error indicating if generation has failed.
+// If the original URL already exists, returns the existing ID and
+// an error wrapping repository.ErrOriginalURLConflict.
 func (s *ShortenerService) Shorten(originalURL string) (string, error) {
 	id, err := generateID()
 	if err != nil {
 		return "", err
 	}
 
-	if err := s.repo.Save(id, originalURL); err != nil {
+	shortURL, err := s.repo.Save(id, originalURL)
+	if err != nil {
+		if errors.Is(err, repository.ErrOriginalURLConflict) {
+			return shortURL, err
+		}
 		return "", err
 	}
-	return id, nil
+	return shortURL, nil
 }
 
 // ShortenBatch generates short IDs for the given URLs and saves them
 // in a single batch operation. Returns the generated IDs in the same order.
+// If any original URL already exists, returns all IDs and an error wrapping
+// repository.ErrOriginalURLConflict.
 func (s *ShortenerService) ShortenBatch(originalURLs []string) ([]string, error) {
-	ids := make([]string, 0, len(originalURLs))
 	pairs := make([]model.URLPair, 0, len(originalURLs))
 
 	for _, originalURL := range originalURLs {
@@ -48,15 +56,18 @@ func (s *ShortenerService) ShortenBatch(originalURLs []string) ([]string, error)
 		if err != nil {
 			return nil, err
 		}
-		ids = append(ids, id)
 		pairs = append(pairs, model.URLPair{ShortURL: id, OriginalURL: originalURL})
 	}
 
-	if err := s.repo.SaveBatch(pairs); err != nil {
-		return nil, err
+	result, err := s.repo.SaveBatch(pairs)
+	if err != nil {
+		if errors.Is(err, repository.ErrOriginalURLConflict) {
+			return result, err
+		}
+		return []string{}, err
 	}
 
-	return ids, nil
+	return result, nil
 }
 
 // Expand retrieves the original URL for the given short ID.

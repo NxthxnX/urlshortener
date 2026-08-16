@@ -2,15 +2,25 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 
 	"github.com/NxthxnX/urlshortener/internal/model"
 )
 
+// ErrOriginalURLConflict is returned when the original URL already exists
+// in the repository.
+var ErrOriginalURLConflict = errors.New("original URL conflict")
+
+// ErrShortURLConflict is returned when the generated short URL collides
+// with an existing entry.
+var ErrShortURLConflict = errors.New("short URL conflict")
+
 // Repository defines the contract for URL persistence backends.
 type Repository interface {
-	Save(id, originalURL string) error
-	SaveBatch(pairs []model.URLPair) error
+	Save(id, originalURL string) (string, error)
+	SaveBatch(pairs []model.URLPair) ([]string, error)
 	FindByID(id string) (string, bool)
+	Clear() error
 }
 
 // Config selects and configures a storage backend.
